@@ -8,8 +8,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -56,5 +57,48 @@ public class PostServiceTest {
         assertEquals(1L, result.id());
         assertEquals("Learning Spring", result.title());
         assertEquals("My first post", result.content());
+    }
+
+    @Test
+    void getPost_existingId_returnsPost() {
+        //Arrange
+        Post post = new Post(
+                1L,
+                "Learning Spring",
+                "My first post"
+        );
+
+        PostService postService = new PostService(postRepository);
+
+        when(postRepository.findById(1L))
+                .thenReturn(Optional.of(post));
+
+        //Act
+        Post result = postService.getPost(1L);
+
+        //Assert
+        assertEquals(1L, result.id());
+        assertEquals("Learning Spring", result.title());
+        assertEquals("My first post", result.content());
+
+        verify(postRepository).findById(1L);
+    }
+
+    @Test
+    void getPost_missingId_throwsPostNotFoundException() {
+        //Arrange
+        PostService postService = new PostService(postRepository);
+
+        //Act
+        when(postRepository.findById(999L))
+                .thenReturn(Optional.empty());
+
+        //Throw
+        assertThrows(
+                PostNotFoundException.class,
+                () -> postService.getPost(999L)
+        );
+
+        verify(postRepository).findById(999L);
     }
 }

@@ -24,4 +24,9 @@ public class PostService {
 
         return postRepository.save(post);
     }
+
+    public Post getPost(Long id) {
+        return postRepository.findById(id)
+                .orElseThrow(() -> new PostNotFoundException(id));
+    }
 }

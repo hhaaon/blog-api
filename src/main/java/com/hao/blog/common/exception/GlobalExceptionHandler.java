@@ -1,5 +1,8 @@
 package com.hao.blog.common.exception;
 
+import com.hao.blog.post.application.PostNotFoundException;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -35,6 +38,20 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity
                 .badRequest()
+                .body(response);
+    }
+
+    @ExceptionHandler(PostNotFoundException.class)
+    ResponseEntity<ErrorResponse> handleValidationError(
+             PostNotFoundException exception
+    ) {
+        ErrorResponse response = new ErrorResponse(
+                "POST_NOT_FOUND",
+                exception.getMessage()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
                 .body(response);
     }
 }
