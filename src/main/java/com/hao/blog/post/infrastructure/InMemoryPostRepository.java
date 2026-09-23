@@ -8,7 +8,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-@Repository
 public class InMemoryPostRepository implements PostRepository {
 
     private final Map<Long, Post> posts = new HashMap<>();

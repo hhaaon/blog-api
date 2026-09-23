@@ -6,6 +6,7 @@ public class Post {
     private final String title;
     private final String content;
 
+
     public Post(Long id, String title, String content) {
         if (title == null || title.isBlank()) {
             throw new IllegalArgumentException("title is required");
