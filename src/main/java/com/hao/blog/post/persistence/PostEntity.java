@@ -1,10 +1,9 @@
 package com.hao.blog.post.persistence;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "posts")
@@ -17,6 +16,12 @@ public class PostEntity {
     private String title;
 
     private String content;
+
+    @OneToMany(
+            mappedBy = "post",
+            orphanRemoval = true
+    )
+    private List<CommentEntity> comments = new ArrayList<>();
 
     protected PostEntity() {
     }
@@ -36,5 +41,19 @@ public class PostEntity {
 
     public String getContent() {
         return content;
+    }
+
+    public void addComment(CommentEntity comment) {
+        comments.add(comment);
+        comment.setPost(this);
+    }
+
+    public void removeComment(CommentEntity comment) {
+        comments.remove(comment);
+        comment.setPost(null);
+    }
+
+    public List<CommentEntity> getComments() {
+        return List.copyOf(comments);
     }
 }
