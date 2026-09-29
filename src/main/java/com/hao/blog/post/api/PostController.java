@@ -1,12 +1,16 @@
 package com.hao.blog.post.api;
 
 import com.hao.blog.post.application.PostService;
+import com.hao.blog.post.domain.PageResult;
 import com.hao.blog.post.domain.Post;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
+import java.util.List;
 
 @RestController
 public class PostController {
@@ -49,6 +53,37 @@ public class PostController {
                 post.id(),
                 post.title(),
                 post.content()
+        );
+    }
+
+    @GetMapping("/posts")
+    public PageResponse<PostResponse> findAll(
+            @RequestParam(defaultValue = "0")
+            @Min(0)
+            int page,
+
+            @RequestParam(defaultValue = "20")
+            @Min(1)
+            @Max(100)
+            int size
+    ) {
+        PageResult<Post> result = postService.findAll(page, size);
+
+        List<PostResponse> items = result.items()
+                .stream()
+                .map(p -> new PostResponse(
+                        p.id(),
+                        p.title(),
+                        p.content()
+                ))
+                .toList();
+
+        return new PageResponse<>(
+                items,
+                result.page(),
+                result.size(),
+                result.totalElements(),
+                result.totalPages()
         );
     }
 }

@@ -5,5 +5,8 @@ import java.util.Optional;
 public interface PostRepository {
 
     Post save(Post post);
+
     Optional<Post> findById(Long id);
+
+    PageResult<Post> findAll(int page, int size);
 }

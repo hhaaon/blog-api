@@ -1,5 +1,6 @@
 package com.hao.blog.post.application;
 
+import com.hao.blog.post.domain.PageResult;
 import com.hao.blog.post.domain.Post;
 import com.hao.blog.post.domain.PostRepository;
 import org.springframework.stereotype.Service;
@@ -28,5 +29,9 @@ public class PostService {
     public Post getPost(Long id) {
         return postRepository.findById(id)
                 .orElseThrow(() -> new PostNotFoundException(id));
+    }
+
+    public PageResult<Post> findAll(int page, int size) {
+        return postRepository.findAll(page, size);
     }
 }

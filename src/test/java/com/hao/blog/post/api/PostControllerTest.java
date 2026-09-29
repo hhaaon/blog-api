@@ -2,6 +2,7 @@ package com.hao.blog.post.api;
 
 import com.hao.blog.post.application.PostNotFoundException;
 import com.hao.blog.post.application.PostService;
+import com.hao.blog.post.domain.PageResult;
 import com.hao.blog.post.domain.Post;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,6 +10,8 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+
+import java.util.List;
 
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -127,5 +130,79 @@ public class PostControllerTest {
                 .andExpect(jsonPath("$.message").value("Post not found: 999"));
 
         verify(postService).getPost(999L);
+    }
+
+    @Test
+    void findAll_validRequest_return200() throws Exception {
+        // Arrange
+        PageResult<Post> result = new PageResult<>(
+                List.of(
+                        new Post(5L, "Post 5", "Content 5"),
+                        new Post(4L, "Post 4", "Content 4")
+                ),
+                0,
+                2,
+                5,
+                3
+        );
+
+        when(postService.findAll(0, 2))
+                .thenReturn(result);
+
+        //Act + Assert
+        mockMvc.perform(get("/posts")
+                .param("page", "0")
+                .param("size", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(2))
+                .andExpect(jsonPath("$.totalElements").value(5))
+                .andExpect(jsonPath("$.totalPages").value(3))
+                .andExpect(jsonPath("$.items[0].id").value(5))
+                .andExpect(jsonPath("$.items[0].title").value("Post 5"))
+                .andExpect(jsonPath("$.items[1].id").value(4));
+
+        verify(postService).findAll(0, 2);
+    }
+
+    @Test
+    void findAll_sizeAboveMaximum_returns400AndDoesNotCallService() throws Exception {
+        mockMvc.perform(get("/posts")
+                        .param("page", "0")
+                        .param("size", "101"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(postService);
+    }
+
+    @Test
+    void findAll_withoutPaginationParameters_usesDefaults() throws Exception {
+        PageResult<Post> result = new PageResult<>(
+                List.of(),
+                0,
+                20,
+                0,
+                0
+        );
+
+        when(postService.findAll(0, 20))
+                .thenReturn(result);
+
+        mockMvc.perform(get("/posts"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(20));
+
+        verify(postService).findAll(0, 20);
+    }
+
+    @Test
+    void findAll_pageBelowMinimum_returns400AndDoesNotCallService() throws Exception {
+        mockMvc.perform(get("/posts")
+                        .param("page", "-1")
+                        .param("size", "20"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(postService);
     }
 }

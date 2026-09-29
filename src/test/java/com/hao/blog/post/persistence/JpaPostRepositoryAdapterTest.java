@@ -1,5 +1,6 @@
 package com.hao.blog.post.persistence;
 
+import com.hao.blog.post.domain.PageResult;
 import com.hao.blog.post.domain.Post;
 import com.hao.blog.post.domain.PostRepository;
 import com.hao.blog.testsupport.PostgresTestConfiguration;
@@ -80,6 +81,47 @@ class JpaPostRepositoryAdapterTest {
 
         //Act + Assert
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    void findAll_returnsRequestedPageWithNewestPostsFirst() {
+        // Arrange
+        Post post1 = repository.save(
+                new Post(null, "Post 1", "Content 1")
+        );
+        Post post2 = repository.save(
+                new Post(null, "Post 2", "Content 2")
+        );
+        Post post3 = repository.save(
+                new Post(null, "Post 3", "Content 3")
+        );
+        Post post4 = repository.save(
+                new Post(null, "Post 4", "Content 4")
+        );
+        Post post5 = repository.save(
+                new Post(null, "Post 5", "Content 5")
+        );
+
+        entityManager.flush();
+        entityManager.clear();
+
+        // Act
+        PageResult<Post> result =
+                repository.findAll(0, 2);
+
+        // Assert
+        assertThat(result.items()).hasSize(2);
+        assertThat(result.page()).isZero();
+        assertThat(result.size()).isEqualTo(2);
+        assertThat(result.totalElements()).isEqualTo(5);
+        assertThat(result.totalPages()).isEqualTo(3);
+
+        assertThat(result.items())
+                .extracting(Post::id)
+                .containsExactly(
+                        post5.id(),
+                        post4.id()
+                );
     }
 
 }
