@@ -86,4 +86,22 @@ public class PostController {
                 result.totalPages()
         );
     }
+
+    @PutMapping("/posts/{id}")
+    public PostResponse updatePost(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdatePostRequest request
+    ) {
+        Post updatedPost = postService.updatePost(
+                id,
+                request.title(),
+                request.content()
+        );
+
+        return new PostResponse(
+                updatedPost.id(),
+                updatedPost.title(),
+                updatedPost.content()
+        );
+    }
 }

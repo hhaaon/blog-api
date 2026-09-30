@@ -14,8 +14,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(PostController.class)
@@ -204,5 +203,81 @@ public class PostControllerTest {
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(postService);
+    }
+
+    @Test
+    void updatePost_validRequest_returns200()  throws  Exception{
+
+        //Arrange
+        Post updatedPost = new Post(
+                1L,
+                "Changed",
+                "New content"
+        );
+
+        when(postService.updatePost(
+                1L,
+                "Changed",
+                "New content"
+        )).thenReturn(updatedPost);
+
+        //Act + Assert
+        mockMvc.perform(put("/posts/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                "title": "Changed",
+                                "content": "New content"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1L))
+                .andExpect(jsonPath("$.title").value("Changed"))
+                .andExpect(jsonPath("$.content").value("New content"));
+
+        verify(postService).updatePost(1L, "Changed", "New content");
+    }
+
+    @Test
+    void updatePost_blankTitle_returns400AndDoesNotCallService() throws Exception {
+        mockMvc.perform(put("/posts/1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {
+                        "title": "    ",
+                        "content": "New content"
+                        }
+                        """))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(postService);
+    }
+
+    @Test
+    void updatePost_missingPost_return404() throws Exception {
+        //Arrange
+        when(postService.updatePost(
+                999L,
+                "Changed",
+                "New content"
+        )).thenThrow(new PostNotFoundException(999L));
+
+        //Act + Assert
+        mockMvc.perform(put("/posts/999")
+                .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                "title": "Changed",
+                                "content": "New content"
+                                }
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("POST_NOT_FOUND"));
+
+        verify(postService).updatePost(
+                999L,
+                "Changed",
+                "New content"
+        );
     }
 }
