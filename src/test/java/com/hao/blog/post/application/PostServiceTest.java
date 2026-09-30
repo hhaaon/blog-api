@@ -101,4 +101,67 @@ public class PostServiceTest {
 
         verify(postRepository).findById(999L);
     }
+
+    @Test
+    void updatePost_existingPost_returnsUpdatedPost() {
+        //arrange
+        PostService postService = new PostService(postRepository);
+
+        Post updatedPost = new Post(
+                1L,
+                "Changed",
+                "New content"
+        );
+
+        when(postRepository.update(
+                1L,
+                "Changed",
+                "New content"
+        )).thenReturn(Optional.of(updatedPost));
+
+        //Act
+        Post result = postService.updatePost(
+                1L,
+                "Changed",
+                "New content"
+        );
+
+        //Assert
+        assertEquals("Changed", result.title());
+        assertEquals("New content", result.content());
+
+        verify(postRepository).update(
+                1L,
+                "Changed",
+                "New content"
+        );
+    }
+
+    @Test
+    void updatePost_missingPost_throwsPostNotFoundException() {
+        //Arrange
+        PostService postService = new PostService(postRepository);
+
+        when(postRepository.update(
+                999L,
+                "Changed",
+                "New content"
+        )).thenReturn(Optional.empty());
+
+        //Act + Assert
+        assertThrows(
+                PostNotFoundException.class,
+                () -> postService.updatePost(
+                        999L,
+                        "Changed",
+                        "New content"
+                )
+        );
+
+        verify(postRepository).update(
+                999L,
+                "Changed",
+                "New content"
+        );
+    }
 }

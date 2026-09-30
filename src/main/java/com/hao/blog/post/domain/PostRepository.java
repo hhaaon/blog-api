@@ -9,4 +9,10 @@ public interface PostRepository {
     Optional<Post> findById(Long id);
 
     PageResult<Post> findAll(int page, int size);
+
+    Optional<Post> update(
+      Long id,
+      String title,
+      String content
+    );
 }

@@ -41,4 +41,9 @@ public class InMemoryPostRepository implements PostRepository {
     public PageResult<Post> findAll(int page, int size) {
         return null;
     }
+
+    @Override
+    public Optional<Post> update(Long id, String title, String content) {
+        return Optional.empty();
+    }
 }

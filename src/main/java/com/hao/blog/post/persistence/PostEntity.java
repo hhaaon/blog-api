@@ -43,6 +43,11 @@ public class PostEntity {
         return content;
     }
 
+    public void update(String title, String content) {
+        this.title = title;
+        this.content = content;
+    }
+
     public void addComment(CommentEntity comment) {
         comments.add(comment);
         comment.setPost(this);

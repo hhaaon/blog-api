@@ -68,6 +68,20 @@ public class JpaPostRepositoryAdapter implements PostRepository {
         );
     }
 
+    @Override
+    public Optional<Post> update(
+            Long id,
+            String title,
+            String content
+    ) {
+        return repository.findById(id)
+                .map(entity -> {
+                    entity.update(title, content);
+
+                    return toDomain(entity);
+                });
+    }
+
     private Post toDomain(PostEntity entity) {
         return new Post(
                 entity.getId(),
