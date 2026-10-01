@@ -203,5 +203,4 @@ class PostTransactionIsolationTest {
             throw new IllegalStateException(e);
         }
     }
-
 }

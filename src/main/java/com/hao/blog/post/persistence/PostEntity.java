@@ -17,6 +17,9 @@ public class PostEntity {
 
     private String content;
 
+    @Version
+    private Long version;
+
     @OneToMany(
             mappedBy = "post",
             orphanRemoval = true
@@ -60,5 +63,9 @@ public class PostEntity {
 
     public List<CommentEntity> getComments() {
         return List.copyOf(comments);
+    }
+
+    public Long getVersion() {
+        return version;
     }
 }
