@@ -17,6 +17,7 @@ public class PostService {
         this.postRepository = postRepository;
     }
 
+    @Transactional
     public Post createPost(String title, String content) {
         Post post = new Post(
                 null,
