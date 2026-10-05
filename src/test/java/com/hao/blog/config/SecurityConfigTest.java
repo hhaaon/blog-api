@@ -13,7 +13,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(SecurityProbeController.class)
-@Import(SecurityConfig.class)
+@Import({
+        SecurityConfig.class,
+        SecurityProbeController.class
+})
 class SecurityConfigTest {
 
     @Autowired

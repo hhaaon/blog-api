@@ -1,6 +1,7 @@
 package com.hao.blog.common.exception;
 
 import com.hao.blog.post.application.PostNotFoundException;
+import com.hao.blog.user.application.DuplicateEmailException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
@@ -52,6 +53,20 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity
                 .status(HttpStatus.NOT_FOUND)
+                .body(response);
+    }
+
+    @ExceptionHandler(DuplicateEmailException.class)
+    ResponseEntity<ErrorResponse> handleDuplicateEmailError(
+            DuplicateEmailException exception
+    ) {
+        ErrorResponse response = new ErrorResponse(
+                "DUPLICATE_EMAIL",
+                exception.getMessage()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
                 .body(response);
     }
 }
