@@ -2,6 +2,8 @@ package com.hao.blog.common.exception;
 
 import com.hao.blog.post.application.PostNotFoundException;
 import com.hao.blog.user.application.DuplicateEmailException;
+import com.hao.blog.user.application.InvalidCredentialsException;
+import org.apache.tomcat.websocket.AuthenticationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
@@ -68,5 +70,31 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.CONFLICT)
                 .body(response);
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    ResponseEntity<ErrorResponse> handleAuthenticationError(
+            AuthenticationException exception
+    ) {
+        ErrorResponse response = new ErrorResponse(
+                "INVALID_CREDENTIALS",
+                "Invalid email or password"
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(response);
+    }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    ResponseEntity<ErrorResponse> handleInvalidCredentials(
+            InvalidCredentialsException exception
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(new ErrorResponse(
+                        "INVALID_CREDENTIALS",
+                        "Invalid email or password"
+                ));
     }
 }
