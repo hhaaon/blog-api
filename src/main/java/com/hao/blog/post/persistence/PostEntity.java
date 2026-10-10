@@ -17,6 +17,9 @@ public class PostEntity {
 
     private String content;
 
+    @Column(name = "author_id", nullable = false)
+    private Long authorId;
+
     @Version
     private Long version;
 
@@ -29,9 +32,10 @@ public class PostEntity {
     protected PostEntity() {
     }
 
-    public PostEntity(String title, String content) {
+    public PostEntity(String title, String content, Long authorId) {
         this.title = title;
         this.content = content;
+        this.authorId = authorId;
     }
 
     public Long getId() {
@@ -44,6 +48,10 @@ public class PostEntity {
 
     public String getContent() {
         return content;
+    }
+
+    public Long getAuthorId() {
+        return authorId;
     }
 
     public void update(String title, String content) {

@@ -2,6 +2,7 @@ package com.hao.blog.user.api;
 
 import com.hao.blog.testsupport.PostgresTestConfiguration;
 import com.hao.blog.user.application.RegistrationService;
+import com.hao.blog.user.domain.User;
 import com.hao.blog.user.persistence.UserJpaRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -103,6 +105,55 @@ class LoginIntegrationTest {
                         .session(session)
                         .with(csrf()))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void authMe_afterLogin_returnsAuthenticatedUser() throws Exception {
+        User registeredUser =
+                registrationService.register(
+                        "alice@example.com",
+                        "secret123"
+                );
+
+        String loginBody = """
+                {
+                    "email": "alice@example.com",
+                    "password": "secret123" 
+                }
+                """;
+
+        MvcResult loginResult =
+                mockMvc.perform(post("/auth/login")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginBody))
+                        .andExpect(status().isNoContent())
+                        .andReturn();
+
+        MockHttpSession session =
+                (MockHttpSession) loginResult
+                        .getRequest()
+                        .getSession(false);
+
+        assertNotNull(session);
+
+        mockMvc.perform(get("/auth/me")
+                    .session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id")
+                        .value(registeredUser.id().intValue()))
+                .andExpect(jsonPath("$.email")
+                        .value("alice@example.com"))
+                .andExpect(jsonPath("$.role")
+                        .value("USER"))
+                .andExpect(jsonPath("$.password").doesNotExist())
+                .andExpect(jsonPath("$.passwordHash").doesNotExist());
+    }
+
+    @Test
+    void authMe_withoutAuthentication_returnAuthorized() throws Exception {
+        mockMvc.perform(get("/auth/me"))
+                .andExpect(status().isUnauthorized());
     }
 
     @RestController

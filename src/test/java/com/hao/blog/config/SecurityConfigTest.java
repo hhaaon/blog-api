@@ -34,10 +34,12 @@ class SecurityConfigTest {
     }
 
     @Test
-    void postPosts_withoutAuthentication_withValidCsrf_isRejected() throws Exception {
+    void postPosts_withoutAuthentication_withValidCsrf_isRejected()
+            throws Exception {
+
         mockMvc.perform(post("/posts")
                         .with(csrf()))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -54,4 +56,6 @@ class SecurityConfigTest {
                         .with(user("alice")))
                 .andExpect(status().isForbidden());
     }
+
+
 }

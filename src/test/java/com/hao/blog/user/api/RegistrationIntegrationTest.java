@@ -11,6 +11,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -33,9 +34,14 @@ class RegistrationIntegrationTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    JdbcTemplate jdbcTemplate;
+
     @BeforeEach
     void cleanDatabase() {
-        userJpaRepository.deleteAll();
+        jdbcTemplate.update("DELETE FROM comments");
+        jdbcTemplate.update("DELETE FROM posts");
+        jdbcTemplate.update("DELETE FROM users");
     }
 
     @Test

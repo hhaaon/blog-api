@@ -11,39 +11,40 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-public class PostServiceTest {
+class PostServiceTest {
+
+    private static final Long AUTHOR_ID = 42L;
 
     @Mock
     private PostRepository postRepository;
 
     @Test
-    void createPost_validInput_createsPost() {
-        //arrange
-        Post savedPost =
-                new Post(
-                        1L,
-                        "Learning Spring",
-                        "My first post"
-                );
+    void createPost_validInput_createsPostWithAuthenticatedAuthor() {
+        // Arrange
+        Post savedPost = new Post(
+                1L,
+                "Learning Spring",
+                "My first post",
+                AUTHOR_ID
+        );
 
-        PostService postService =
-                new PostService(postRepository);
+        PostService postService = new PostService(postRepository);
 
         when(postRepository.save(any(Post.class)))
                 .thenReturn(savedPost);
 
-        //Act
+        // Act
         Post result = postService.createPost(
                 "Learning Spring",
-                "My first post"
+                "My first post",
+                AUTHOR_ID
         );
 
-        //Assert
+        // Assert
         ArgumentCaptor<Post> captor =
                 ArgumentCaptor.forClass(Post.class);
 
@@ -52,48 +53,63 @@ public class PostServiceTest {
         Post postPassedToRepository = captor.getValue();
 
         assertNull(postPassedToRepository.id());
-        assertEquals("Learning Spring", postPassedToRepository.title());
-        assertEquals("My first post", postPassedToRepository.content());
+        assertEquals(
+                "Learning Spring",
+                postPassedToRepository.title()
+        );
+        assertEquals(
+                "My first post",
+                postPassedToRepository.content()
+        );
+        assertEquals(
+                AUTHOR_ID,
+                postPassedToRepository.authorId()
+        );
+
         assertEquals(1L, result.id());
         assertEquals("Learning Spring", result.title());
         assertEquals("My first post", result.content());
+        assertEquals(AUTHOR_ID, result.authorId());
     }
 
     @Test
     void getPost_existingId_returnsPost() {
-        //Arrange
+        // Arrange
         Post post = new Post(
                 1L,
                 "Learning Spring",
-                "My first post"
+                "My first post",
+                AUTHOR_ID
         );
 
-        PostService postService = new PostService(postRepository);
+        PostService postService =
+                new PostService(postRepository);
 
         when(postRepository.findById(1L))
                 .thenReturn(Optional.of(post));
 
-        //Act
+        // Act
         Post result = postService.getPost(1L);
 
-        //Assert
+        // Assert
         assertEquals(1L, result.id());
         assertEquals("Learning Spring", result.title());
         assertEquals("My first post", result.content());
+        assertEquals(AUTHOR_ID, result.authorId());
 
         verify(postRepository).findById(1L);
     }
 
     @Test
     void getPost_missingId_throwsPostNotFoundException() {
-        //Arrange
-        PostService postService = new PostService(postRepository);
+        // Arrange
+        PostService postService =
+                new PostService(postRepository);
 
-        //Act
         when(postRepository.findById(999L))
                 .thenReturn(Optional.empty());
 
-        //Throw
+        // Act + Assert
         assertThrows(
                 PostNotFoundException.class,
                 () -> postService.getPost(999L)
@@ -103,15 +119,27 @@ public class PostServiceTest {
     }
 
     @Test
-    void updatePost_existingPost_returnsUpdatedPost() {
-        //arrange
-        PostService postService = new PostService(postRepository);
+    void updatePost_owner_returnsUpdatedPost() {
+        // Arrange
+        PostService postService =
+                new PostService(postRepository);
+
+        Post existingPost = new Post(
+                1L,
+                "Original",
+                "Original content",
+                AUTHOR_ID
+        );
 
         Post updatedPost = new Post(
                 1L,
                 "Changed",
-                "New content"
+                "New content",
+                AUTHOR_ID
         );
+
+        when(postRepository.findById(1L))
+                .thenReturn(Optional.of(existingPost));
 
         when(postRepository.update(
                 1L,
@@ -119,16 +147,21 @@ public class PostServiceTest {
                 "New content"
         )).thenReturn(Optional.of(updatedPost));
 
-        //Act
+        // Act
         Post result = postService.updatePost(
                 1L,
                 "Changed",
-                "New content"
+                "New content",
+                AUTHOR_ID
         );
 
-        //Assert
+        // Assert
+        assertEquals(1L, result.id());
         assertEquals("Changed", result.title());
         assertEquals("New content", result.content());
+        assertEquals(AUTHOR_ID, result.authorId());
+
+        verify(postRepository).findById(1L);
 
         verify(postRepository).update(
                 1L,
@@ -139,29 +172,68 @@ public class PostServiceTest {
 
     @Test
     void updatePost_missingPost_throwsPostNotFoundException() {
-        //Arrange
-        PostService postService = new PostService(postRepository);
+        // Arrange
+        PostService postService =
+                new PostService(postRepository);
 
-        when(postRepository.update(
-                999L,
-                "Changed",
-                "New content"
-        )).thenReturn(Optional.empty());
+        when(postRepository.findById(999L))
+                .thenReturn(Optional.empty());
 
-        //Act + Assert
+        // Act + Assert
         assertThrows(
                 PostNotFoundException.class,
                 () -> postService.updatePost(
                         999L,
                         "Changed",
-                        "New content"
+                        "New content",
+                        AUTHOR_ID
                 )
         );
 
-        verify(postRepository).update(
-                999L,
-                "Changed",
-                "New content"
+        verify(postRepository).findById(999L);
+
+        verify(postRepository, never())
+                .update(
+                        anyLong(),
+                        anyString(),
+                        anyString()
+                );
+    }
+
+    @Test
+    void updatePost_nonOwner_throwsPostAccessDeniedException() {
+        // Arrange
+        PostService postService =
+                new PostService(postRepository);
+
+        Post existingPost = new Post(
+                1L,
+                "Original",
+                "Content",
+                17L
         );
+
+        when(postRepository.findById(1L))
+                .thenReturn(Optional.of(existingPost));
+
+        // Act + Assert
+        assertThrows(
+                PostAccessDeniedException.class,
+                () -> postService.updatePost(
+                        1L,
+                        "Changed",
+                        "New content",
+                        99L
+                )
+        );
+
+        verify(postRepository).findById(1L);
+
+        verify(postRepository, never())
+                .update(
+                        anyLong(),
+                        anyString(),
+                        anyString()
+                );
     }
 }

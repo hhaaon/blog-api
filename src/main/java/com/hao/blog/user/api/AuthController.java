@@ -3,6 +3,7 @@ package com.hao.blog.user.api;
 import com.hao.blog.user.application.InvalidCredentialsException;
 import com.hao.blog.user.application.RegistrationService;
 import com.hao.blog.user.domain.User;
+import com.hao.blog.user.security.AuthenticatedUser;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -12,10 +13,12 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
 import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -101,5 +104,19 @@ public class AuthController {
         );
 
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/auth/me")
+    public ResponseEntity<MeResponse> me(
+            @AuthenticationPrincipal AuthenticatedUser principal
+            ) {
+
+        MeResponse response = new MeResponse(
+                principal.id(),
+                principal.getUsername(),
+                principal.role()
+        );
+
+        return ResponseEntity.ok(response);
     }
 }

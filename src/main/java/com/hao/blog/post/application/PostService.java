@@ -18,11 +18,12 @@ public class PostService {
     }
 
     @Transactional
-    public Post createPost(String title, String content) {
+    public Post createPost(String title, String content, Long authorId) {
         Post post = new Post(
                 null,
                 title,
-                content
+                content,
+                authorId
         );
 
         return postRepository.save(post);
@@ -41,8 +42,16 @@ public class PostService {
     public Post updatePost(
             Long id,
             String title,
-            String content
+            String content,
+            Long callerId
     ) {
+        Post existing = postRepository.findById(id)
+                .orElseThrow(() -> new PostNotFoundException(id));
+
+        if (!existing.authorId().equals(callerId)) {
+            throw new PostAccessDeniedException();
+        }
+
         return postRepository.update(id, title, content)
                 .orElseThrow(() -> new PostNotFoundException(id));
     }

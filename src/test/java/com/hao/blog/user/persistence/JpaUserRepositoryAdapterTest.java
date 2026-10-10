@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.Optional;
 
@@ -24,9 +25,14 @@ class JpaUserRepositoryAdapterTest {
     @Autowired
     private UserJpaRepository userJpaRepository;
 
+    @Autowired
+    JdbcTemplate jdbcTemplate;
+
     @BeforeEach
     void cleanDatabase() {
-        userJpaRepository.deleteAll();
+        jdbcTemplate.update("DELETE FROM comments");
+        jdbcTemplate.update("DELETE FROM posts");
+        jdbcTemplate.update("DELETE FROM users");
     }
 
     @Test

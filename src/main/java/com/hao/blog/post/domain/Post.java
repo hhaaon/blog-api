@@ -5,9 +5,10 @@ public class Post {
     private final Long id;
     private final String title;
     private final String content;
+    private final Long authorId;
 
 
-    public Post(Long id, String title, String content) {
+    public Post(Long id, String title, String content, Long authorId) {
         if (title == null || title.isBlank()) {
             throw new IllegalArgumentException("title is required");
         }
@@ -19,6 +20,7 @@ public class Post {
         this.id = id;
         this.title = title;
         this.content = content;
+        this.authorId = authorId;
     }
 
     public Long id() {
@@ -31,5 +33,9 @@ public class Post {
 
     public String content() {
         return content;
+    }
+
+    public Long authorId() {
+        return authorId;
     }
 }

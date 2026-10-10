@@ -25,7 +25,8 @@ public class JpaPostRepositoryAdapter implements PostRepository {
         PostEntity postEntity =
                 new PostEntity(
                         post.title(),
-                        post.content()
+                        post.content(),
+                        post.authorId()
                 );
 
         PostEntity result = repository.save(postEntity);
@@ -33,7 +34,8 @@ public class JpaPostRepositoryAdapter implements PostRepository {
         return new Post(
                 result.getId(),
                 result.getTitle(),
-                result.getContent()
+                result.getContent(),
+                result.getAuthorId()
         );
     }
 
@@ -86,7 +88,8 @@ public class JpaPostRepositoryAdapter implements PostRepository {
         return new Post(
                 entity.getId(),
                 entity.getTitle(),
-                entity.getContent()
+                entity.getContent(),
+                entity.getAuthorId()
         );
     }
 }

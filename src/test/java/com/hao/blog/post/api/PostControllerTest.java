@@ -1,23 +1,37 @@
 package com.hao.blog.post.api;
 
+import com.hao.blog.post.application.PostAccessDeniedException;
 import com.hao.blog.post.application.PostNotFoundException;
 import com.hao.blog.post.application.PostService;
 import com.hao.blog.post.domain.PageResult;
 import com.hao.blog.post.domain.Post;
+import com.hao.blog.user.domain.UserRole;
+import com.hao.blog.user.security.AuthenticatedUser;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.test.context.TestSecurityContextHolder;
+import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.method.support.HandlerMethodArgumentResolver;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(PostController.class)
+@Import(PostControllerTest.SecurityMvcTestConfig.class)
 public class PostControllerTest {
 
     @Autowired
@@ -26,32 +40,54 @@ public class PostControllerTest {
     @MockitoBean
     private PostService postService;
 
+    private static final Long AUTHOR_ID = 42L;
+
+    private static final AuthenticatedUser AUTHENTICATED_USER =
+            new AuthenticatedUser(
+                    AUTHOR_ID,
+                    "owner@example.com",
+                    "unused-test-hash",
+                    UserRole.USER
+            );
+
+    private static final Long NON_OWNER_ID = 99L;
+
+    private static final AuthenticatedUser NON_OWNER =
+            new AuthenticatedUser(
+                    NON_OWNER_ID,
+                    "other@example.com",
+                    "unused-test-hash",
+                    UserRole.USER
+            );
+
     @Test
     void createPost_validRequest_returns201WithCreatedPost() throws Exception {
-        //arrange
-        Post createdPost =
-                new Post(
-                        1L,
-                        "Learning Spring",
-                        "My first post"
-                );
+        authenticateAs(AUTHENTICATED_USER);
+
+        Post createdPost = new Post(
+                1L,
+                "Learning Spring",
+                "My first post",
+                AUTHOR_ID
+        );
 
         when(postService.createPost(
                 "Learning Spring",
-                "My first post"
+                "My first post",
+                AUTHOR_ID
         )).thenReturn(createdPost);
 
-        //act + assert
         mockMvc.perform(
                         post("/posts")
+                                .with(testSecurityContext())
+                                .with(csrf())
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content(
-                                        """
-                                        {
-                                            "title": "Learning Spring",
-                                            "content": "My first post"
-                                        }
-                                        """)
+                                .content("""
+                                    {
+                                        "title": "Learning Spring",
+                                        "content": "My first post"
+                                    }
+                                    """)
                 )
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "/posts/1"))
@@ -61,7 +97,8 @@ public class PostControllerTest {
 
         verify(postService).createPost(
                 "Learning Spring",
-                "My first post"
+                "My first post",
+                AUTHOR_ID
         );
     }
 
@@ -71,6 +108,8 @@ public class PostControllerTest {
         //act + assert
         mockMvc.perform(
             post("/posts")
+                    .with(user(AUTHENTICATED_USER))
+                    .with(csrf())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("""
                             {
@@ -94,7 +133,8 @@ public class PostControllerTest {
         Post post = new Post(
                 1L,
                 "Learning Spring",
-                "My first post"
+                "My first post",
+                AUTHOR_ID
         );
 
         when(postService.getPost(1L))
@@ -136,8 +176,8 @@ public class PostControllerTest {
         // Arrange
         PageResult<Post> result = new PageResult<>(
                 List.of(
-                        new Post(5L, "Post 5", "Content 5"),
-                        new Post(4L, "Post 4", "Content 4")
+                        new Post(5L, "Post 5", "Content 5", AUTHOR_ID),
+                        new Post(4L, "Post 4", "Content 4", AUTHOR_ID)
                 ),
                 0,
                 2,
@@ -206,41 +246,53 @@ public class PostControllerTest {
     }
 
     @Test
-    void updatePost_validRequest_returns200()  throws  Exception{
+    void updatePost_validRequest_returns200() throws Exception {
+        authenticateAs(AUTHENTICATED_USER);
 
-        //Arrange
         Post updatedPost = new Post(
                 1L,
                 "Changed",
-                "New content"
+                "New content",
+                AUTHOR_ID
         );
 
         when(postService.updatePost(
                 1L,
                 "Changed",
-                "New content"
+                "New content",
+                AUTHOR_ID
         )).thenReturn(updatedPost);
 
-        //Act + Assert
-        mockMvc.perform(put("/posts/1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                "title": "Changed",
-                                "content": "New content"
-                                }
-                                """))
+        mockMvc.perform(
+                        put("/posts/1")
+                                .with(testSecurityContext())
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                    {
+                                        "title": "Changed",
+                                        "content": "New content"
+                                    }
+                                    """)
+                )
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1L))
+                .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.title").value("Changed"))
                 .andExpect(jsonPath("$.content").value("New content"));
 
-        verify(postService).updatePost(1L, "Changed", "New content");
+        verify(postService).updatePost(
+                1L,
+                "Changed",
+                "New content",
+                AUTHOR_ID
+        );
     }
 
     @Test
     void updatePost_blankTitle_returns400AndDoesNotCallService() throws Exception {
         mockMvc.perform(put("/posts/1")
+                        .with(user(AUTHENTICATED_USER))
+                        .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {
@@ -255,29 +307,101 @@ public class PostControllerTest {
 
     @Test
     void updatePost_missingPost_return404() throws Exception {
-        //Arrange
+        authenticateAs(AUTHENTICATED_USER);
+
         when(postService.updatePost(
                 999L,
                 "Changed",
-                "New content"
+                "New content",
+                AUTHOR_ID
         )).thenThrow(new PostNotFoundException(999L));
 
-        //Act + Assert
-        mockMvc.perform(put("/posts/999")
-                .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                "title": "Changed",
-                                "content": "New content"
-                                }
-                                """))
+        mockMvc.perform(
+                        put("/posts/999")
+                                .with(testSecurityContext())
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                    {
+                                        "title": "Changed",
+                                        "content": "New content"
+                                    }
+                                    """)
+                )
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("POST_NOT_FOUND"));
 
         verify(postService).updatePost(
                 999L,
                 "Changed",
-                "New content"
+                "New content",
+                AUTHOR_ID
         );
+    }
+
+    @Test
+    void updatePost_nonOwner_returns403() throws Exception {
+        authenticateAs(NON_OWNER);
+
+        when(postService.updatePost(
+                1L,
+                "Changed",
+                "New content",
+                NON_OWNER_ID
+        )).thenThrow(new PostAccessDeniedException());
+
+        mockMvc.perform(
+                        put("/posts/1")
+                                .with(testSecurityContext())
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                    {
+                                        "title": "Changed",
+                                        "content": "New content"
+                                    }
+                                    """)
+                )
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code")
+                        .value("POST_ACCESS_DENIED"))
+                .andExpect(jsonPath("$.message")
+                        .value("Post access denied"));
+
+        verify(postService).updatePost(
+                1L,
+                "Changed",
+                "New content",
+                NON_OWNER_ID
+        );
+    }
+
+    @TestConfiguration
+    static class SecurityMvcTestConfig implements WebMvcConfigurer {
+
+        @Override
+        public void addArgumentResolvers(
+                List<HandlerMethodArgumentResolver> resolvers
+        ) {
+            resolvers.add(
+                    new AuthenticationPrincipalArgumentResolver()
+            );
+        }
+    }
+
+    private void authenticateAs(AuthenticatedUser user) {
+        var authentication =
+                UsernamePasswordAuthenticationToken.authenticated(
+                        user,
+                        null,
+                        user.getAuthorities()
+                );
+
+        TestSecurityContextHolder.setAuthentication(authentication);
+    }
+
+    @AfterEach
+    void clearSecurityContext() {
+        TestSecurityContextHolder.clearContext();
     }
 }

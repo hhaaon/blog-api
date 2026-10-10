@@ -3,10 +3,12 @@ package com.hao.blog.post.api;
 import com.hao.blog.post.application.PostService;
 import com.hao.blog.post.domain.PageResult;
 import com.hao.blog.post.domain.Post;
+import com.hao.blog.user.security.AuthenticatedUser;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
@@ -25,11 +27,13 @@ public class PostController {
 
     @PostMapping("/posts")
     public ResponseEntity<PostResponse> create(
-            @Valid @RequestBody CreatePostRequest request
-    ) {
+            @Valid @RequestBody CreatePostRequest request,
+            @AuthenticationPrincipal AuthenticatedUser principal
+            ) {
         Post createdPost = postService.createPost(
                 request.title(),
-                request.content()
+                request.content(),
+                principal.id()
         );
 
         PostResponse response = new PostResponse(
@@ -90,12 +94,14 @@ public class PostController {
     @PutMapping("/posts/{id}")
     public PostResponse updatePost(
             @PathVariable Long id,
-            @Valid @RequestBody UpdatePostRequest request
+            @Valid @RequestBody UpdatePostRequest request,
+            @AuthenticationPrincipal AuthenticatedUser principal
     ) {
         Post updatedPost = postService.updatePost(
                 id,
                 request.title(),
-                request.content()
+                request.content(),
+                principal.id()
         );
 
         return new PostResponse(

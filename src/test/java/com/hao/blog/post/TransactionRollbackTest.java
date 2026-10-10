@@ -4,7 +4,9 @@ import com.hao.blog.post.domain.Post;
 import com.hao.blog.post.domain.PostRepository;
 import com.hao.blog.post.persistence.PostJpaRepository;
 import com.hao.blog.testsupport.PostgresTestConfiguration;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -13,6 +15,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 
 import java.io.IOException;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -29,6 +32,30 @@ class TransactionRollbackTest {
 
     @Autowired
     private PostJpaRepository repository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    private Long authorId;
+
+    @BeforeEach
+    void setUp() {
+        authorId = createTestUserAndReturnId();
+    }
+
+    private Long createTestUserAndReturnId() {
+        return jdbcTemplate.queryForObject(
+                """
+                INSERT INTO users (email, password_hash, role)
+                VALUES (?, ?, ?)
+                RETURNING id
+                """,
+                Long.class,
+                "owner-" + UUID.randomUUID() + "@example.com",
+                "unused-test-hash",
+                "USER"
+        );
+    }
 
     @TestConfiguration(proxyBeanMethods = false)
     static class TestConfig {
@@ -50,45 +77,45 @@ class TransactionRollbackTest {
         }
 
         @Transactional
-        void saveTwoPostsAndFail() {
+        void saveTwoPostsAndFail(Long authorId) {
             repository.save(
-                    new Post(null, "Post A", "Content A")
+                    new Post(null, "Post A", "Content A", authorId)
             );
 
             repository.save(
-                    new Post(null, "Post B", "Content B")
+                    new Post(null, "Post B", "Content B", authorId)
             );
 
             throw new IllegalStateException("Simulated failure");
         }
 
         @Transactional
-        void saveTwoPostsSuccessfully() {
+        void saveTwoPostsSuccessfully(Long authorId) {
             repository.save(
-                    new Post(null, "Post A", "Content A")
+                    new Post(null, "Post A", "Content A", authorId)
             );
 
             repository.save(
-                    new Post(null, "Post B", "Content B")
+                    new Post(null, "Post B", "Content B", authorId)
             );
         }
 
         @Transactional
-        void saveTwoPostsAndThrowCheckedException() throws IOException {
-            repository.save(new Post(null, "Checked A", "Content A"));
-            repository.save(new Post(null, "Checked B", "Content B"));
+        void saveTwoPostsAndThrowCheckedException(Long authorId) throws IOException {
+            repository.save(new Post(null, "Checked A", "Content A", authorId));
+            repository.save(new Post(null, "Checked B", "Content B", authorId));
 
             throw new IOException("Checked failure");
         }
 
         @Transactional(rollbackFor = IOException.class)
-        void saveTwoPostsAndRollbackOnCheckedException() throws IOException {
+        void saveTwoPostsAndRollbackOnCheckedException(Long authorId) throws IOException {
             repository.save(
-                    new Post(null, "Rollback A", "Content A")
+                    new Post(null, "Rollback A", "Content A", authorId)
             );
 
             repository.save(
-                    new Post(null, "Rollback B", "Content B")
+                    new Post(null, "Rollback B", "Content B", authorId)
             );
 
             throw new IOException("Checked failure");
@@ -99,7 +126,7 @@ class TransactionRollbackTest {
     void runtimeExceptionRollsBackAllWrites() {
         long countBefore = repository.count();
 
-        assertThatThrownBy(() -> writer.saveTwoPostsAndFail())
+        assertThatThrownBy(() -> writer.saveTwoPostsAndFail(authorId))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Simulated failure");
 
@@ -112,7 +139,7 @@ class TransactionRollbackTest {
     void successfulTransactionCommitsAllWrites() {
         long countBefore = repository.count();
 
-        writer.saveTwoPostsSuccessfully();
+        writer.saveTwoPostsSuccessfully(authorId);
 
         long countAfter = repository.count();
 
@@ -124,7 +151,7 @@ class TransactionRollbackTest {
         long countBefore = repository.count();
 
         assertThatThrownBy(
-                () -> writer.saveTwoPostsAndThrowCheckedException()
+                () -> writer.saveTwoPostsAndThrowCheckedException(authorId)
         )
                 .isInstanceOf(IOException.class)
                 .hasMessage("Checked failure");
@@ -139,7 +166,7 @@ class TransactionRollbackTest {
         long countBefore = repository.count();
 
         assertThatThrownBy(
-                () -> writer.saveTwoPostsAndRollbackOnCheckedException()
+                () -> writer.saveTwoPostsAndRollbackOnCheckedException(authorId)
         )
                 .isInstanceOf(IOException.class)
                 .hasMessage("Checked failure");

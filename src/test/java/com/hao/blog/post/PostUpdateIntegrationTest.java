@@ -5,11 +5,15 @@ import com.hao.blog.post.domain.Post;
 import com.hao.blog.post.persistence.PostEntity;
 import com.hao.blog.post.persistence.PostJpaRepository;
 import com.hao.blog.testsupport.PostgresTestConfiguration;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.flyway.autoconfigure.FlywayProperties;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
+
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -23,11 +27,35 @@ public class PostUpdateIntegrationTest {
     @Autowired
     private PostJpaRepository repository;
 
+    @Autowired
+    JdbcTemplate jdbcTemplate;
+
+    private Long authorId;
+
+    @BeforeEach
+    void setUp() {
+        authorId = createTestUserAndReturnId();
+    }
+
+    private Long createTestUserAndReturnId() {
+        return jdbcTemplate.queryForObject(
+                """
+                INSERT INTO users (email, password_hash, role)
+                VALUES (?, ?, ?)
+                RETURNING id
+                """,
+                Long.class,
+                "owner-" + UUID.randomUUID() + "@example.com",
+                "unused-test-hash",
+                "USER"
+        );
+    }
+
     @Test
     void updatePost_existingPost_updatesDatabaseThroughDirtyChecking() {
         //Arrange
         PostEntity saved = repository.save(
-                new PostEntity("Original", "Content")
+                new PostEntity("Original", "Content", authorId)
         );
 
         Long postId = saved.getId();
@@ -36,7 +64,8 @@ public class PostUpdateIntegrationTest {
         Post updated = postService.updatePost(
                 postId,
                 "Changed",
-                "New content"
+                "New content",
+                authorId
         );
 
         //Assert

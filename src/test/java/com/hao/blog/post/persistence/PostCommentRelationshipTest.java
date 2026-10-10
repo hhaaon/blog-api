@@ -5,13 +5,16 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import org.hibernate.SessionFactory;
 import org.hibernate.stat.Statistics;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase.Replace.NONE;
@@ -32,10 +35,34 @@ public class PostCommentRelationshipTest {
     @Autowired
     private PostJpaRepository repository;
 
+    @Autowired
+    JdbcTemplate jdbcTemplate;
+
+    private Long authorId;
+
+    @BeforeEach
+    void setUp() {
+        authorId = createTestUserAndReturnId();
+    }
+
+    private Long createTestUserAndReturnId() {
+        return jdbcTemplate.queryForObject(
+                """
+                INSERT INTO users (email, password_hash, role)
+                VALUES (?, ?, ?)
+                RETURNING id
+                """,
+                Long.class,
+                "owner-" + UUID.randomUUID() + "@example.com",
+                "unused-test-hash",
+                "USER"
+        );
+    }
+
     @Test
     void commentReferencesItsPost() {
         //ACT
-        PostEntity post = new PostEntity("Title", "Content");
+        PostEntity post = new PostEntity("Title", "Content", authorId);
         entityManager.persist(post);
 
         CommentEntity comment =
@@ -62,7 +89,7 @@ public class PostCommentRelationshipTest {
 
     @Test
     void postReferencesItsPersistedComments() {
-        PostEntity post = new PostEntity("Title", "Content");
+        PostEntity post = new PostEntity("Title", "Content", authorId);
         entityManager.persist(post);
 
         CommentEntity comment =
@@ -88,7 +115,7 @@ public class PostCommentRelationshipTest {
 
     @Test
     void removingCommentFromPostDeletesOrphan() {
-        PostEntity post = new PostEntity("Title", "Content");
+        PostEntity post = new PostEntity("Title", "Content", authorId);
         entityManager.persist(post);
 
         CommentEntity comment =
@@ -121,7 +148,7 @@ public class PostCommentRelationshipTest {
 
     @Test
     void deletingPostDirectlyInDatabaseDeletesItsComments() {
-        PostEntity post = new PostEntity("Title", "Content");
+        PostEntity post = new PostEntity("Title", "Content", authorId);
         entityManager.persist(post);
 
         CommentEntity comment =
@@ -156,7 +183,7 @@ public class PostCommentRelationshipTest {
     @Test
     void findAllWithCommentsLoadsCommentsWithoutNPlusOne() {
         // Arrange
-        PostEntity post1 = new PostEntity("Post 1", "Content 1");
+        PostEntity post1 = new PostEntity("Post 1", "Content 1", authorId);
         entityManager.persist(post1);
 
         CommentEntity comment1 =
@@ -166,7 +193,7 @@ public class PostCommentRelationshipTest {
         entityManager.persist(comment1);
 
 
-        PostEntity post2 = new PostEntity("Post 2", "Content 2");
+        PostEntity post2 = new PostEntity("Post 2", "Content 2", authorId);
         entityManager.persist(post2);
 
         CommentEntity comment2 =
@@ -178,7 +205,7 @@ public class PostCommentRelationshipTest {
 
         // This post intentionally has no comments.
         // LEFT JOIN FETCH should still return it.
-        PostEntity post3 = new PostEntity("Post 3", "Content 3");
+        PostEntity post3 = new PostEntity("Post 3", "Content 3", authorId);
         entityManager.persist(post3);
 
 
@@ -229,7 +256,7 @@ public class PostCommentRelationshipTest {
     @Test
     void findAllThenAccessingCommentsCausesNPlusOne() {
         // Arrange
-        PostEntity post1 = new PostEntity("Post 1", "Content 1");
+        PostEntity post1 = new PostEntity("Post 1", "Content 1", authorId);
         entityManager.persist(post1);
 
         CommentEntity comment1 =
@@ -239,7 +266,7 @@ public class PostCommentRelationshipTest {
         entityManager.persist(comment1);
 
 
-        PostEntity post2 = new PostEntity("Post 2", "Content 2");
+        PostEntity post2 = new PostEntity("Post 2", "Content 2", authorId);
         entityManager.persist(post2);
 
         CommentEntity comment2 =
@@ -249,7 +276,7 @@ public class PostCommentRelationshipTest {
         entityManager.persist(comment2);
 
 
-        PostEntity post3 = new PostEntity("Post 3", "Content 3");
+        PostEntity post3 = new PostEntity("Post 3", "Content 3", authorId);
         entityManager.persist(post3);
 
 

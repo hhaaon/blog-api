@@ -4,15 +4,18 @@ import com.hao.blog.post.persistence.PostEntity;
 import com.hao.blog.post.persistence.PostJpaRepository;
 import com.hao.blog.testsupport.PostgresTestConfiguration;
 import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -29,6 +32,30 @@ class PostTransactionIsolationTest {
 
     @Autowired
     private EntityManager entityManager;
+
+    @Autowired
+    JdbcTemplate jdbcTemplate;
+
+    private Long authorId;
+
+    @BeforeEach
+    void setUp() {
+        authorId = createTestUserAndReturnId();
+    }
+
+    private Long createTestUserAndReturnId() {
+        return jdbcTemplate.queryForObject(
+                """
+                INSERT INTO users (email, password_hash, role)
+                VALUES (?, ?, ?)
+                RETURNING id
+                """,
+                Long.class,
+                "owner-" + UUID.randomUUID() + "@example.com",
+                "unused-test-hash",
+                "USER"
+        );
+    }
 
     @Test
     void readCommitted_secondReadAfterConcurrentCommit_returnsChangedValue()
@@ -51,7 +78,7 @@ class PostTransactionIsolationTest {
                 Executors.newFixedThreadPool(2);
 
         PostEntity saved = repository.save(
-                new PostEntity("Original", "Content")
+                new PostEntity("Original", "Content", authorId)
         );
 
         Long postId = saved.getId();
@@ -131,7 +158,7 @@ class PostTransactionIsolationTest {
                 Executors.newFixedThreadPool(2);
 
         PostEntity saved = repository.save(
-                new PostEntity("Original", "Content")
+                new PostEntity("Original", "Content", authorId)
         );
 
         Long postId = saved.getId();

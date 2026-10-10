@@ -32,10 +32,11 @@ public class DatabaseUserDetailsService implements UserDetailsService {
                                 )
                         );
 
-        return org.springframework.security.core.userdetails.User
-                .withUsername(user.email())
-                .password(user.passwordHash())
-                .roles(user.role().name())
-                .build();
+        return new AuthenticatedUser(
+                user.id(),
+                user.email(),
+                user.passwordHash(),
+                user.role()
+        );
     }
 }

@@ -5,15 +5,18 @@ import com.hao.blog.post.persistence.PostEntity;
 import com.hao.blog.post.persistence.PostJpaRepository;
 import com.hao.blog.testsupport.PostgresTestConfiguration;
 import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import org.springframework.dao.OptimisticLockingFailureException;
 
+import java.util.UUID;
 import java.util.concurrent.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,11 +37,35 @@ public class PostOptimisticLockingTest {
     @Autowired
     private EntityManager entityManager;
 
+    @Autowired
+    JdbcTemplate jdbcTemplate;
+
+    private Long authorId;
+
+    @BeforeEach
+    void setUp() {
+        authorId = createTestUserAndReturnId();
+    }
+
+    private Long createTestUserAndReturnId() {
+        return jdbcTemplate.queryForObject(
+                """
+                INSERT INTO users (email, password_hash, role)
+                VALUES (?, ?, ?)
+                RETURNING id
+                """,
+                Long.class,
+                "owner-" + UUID.randomUUID() + "@example.com",
+                "unused-test-hash",
+                "USER"
+        );
+    }
+
     @Test
     void updatePost_existingPost_incrementsVersion() {
         //Arrange
         PostEntity saved = repository.save(
-                new PostEntity("Original", "Content")
+                new PostEntity("Original", "Content", authorId)
         );
 
         Long postId = saved.getId();
@@ -49,7 +76,8 @@ public class PostOptimisticLockingTest {
         postService.updatePost(
                 postId,
                 "Changed",
-                "New content"
+                "New content",
+                authorId
         );
 
         //Assert
@@ -73,7 +101,8 @@ public class PostOptimisticLockingTest {
         Long postId = repository.save(
                 new PostEntity(
                         "Original",
-                        "Content"
+                        "Content",
+                        authorId
                 )
         )
                 .getId();

@@ -21,7 +21,8 @@ public class InMemoryPostRepository implements PostRepository {
         Post savedPost = new Post(
                 id,
                 post.title(),
-                post.content()
+                post.content(),
+                post.authorId()
         );
 
         posts.put(

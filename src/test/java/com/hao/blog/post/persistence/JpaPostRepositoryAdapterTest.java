@@ -5,13 +5,16 @@ import com.hao.blog.post.domain.Post;
 import com.hao.blog.post.domain.PostRepository;
 import com.hao.blog.testsupport.PostgresTestConfiguration;
 import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase.Replace.NONE;
@@ -30,13 +33,38 @@ class JpaPostRepositoryAdapterTest {
     @Autowired
     private EntityManager entityManager;
 
+    @Autowired
+    JdbcTemplate jdbcTemplate;
+
+    private Long authorId;
+
+    @BeforeEach
+    void setUp() {
+        authorId = createTestUserAndReturnId();
+    }
+
+    private Long createTestUserAndReturnId() {
+        return jdbcTemplate.queryForObject(
+                """
+                INSERT INTO users (email, password_hash, role)
+                VALUES (?, ?, ?)
+                RETURNING id
+                """,
+                Long.class,
+                "owner-" + UUID.randomUUID() + "@example.com",
+                "unused-test-hash",
+                "USER"
+        );
+    }
+
     @Test
     void save_persistsPostAndReturnsGeneratedId() {
         //Arrange
         Post post = new Post(
                 null,
                 "Learning JPA",
-                "Testing persistence with PostgreSQL"
+                "Testing persistence with PostgreSQL",
+                authorId
         );
 
         //Act
@@ -55,7 +83,8 @@ class JpaPostRepositoryAdapterTest {
         Post post = new Post(
                 null,
                 "Finding a persisted post",
-                "Testing the real database read path"
+                "Testing the real database read path",
+                authorId
         );
 
         Post savedPost = repository.save(post);
@@ -87,19 +116,19 @@ class JpaPostRepositoryAdapterTest {
     void findAll_returnsRequestedPageWithNewestPostsFirst() {
         // Arrange
         Post post1 = repository.save(
-                new Post(null, "Post 1", "Content 1")
+                new Post(null, "Post 1", "Content 1", authorId)
         );
         Post post2 = repository.save(
-                new Post(null, "Post 2", "Content 2")
+                new Post(null, "Post 2", "Content 2", authorId)
         );
         Post post3 = repository.save(
-                new Post(null, "Post 3", "Content 3")
+                new Post(null, "Post 3", "Content 3", authorId)
         );
         Post post4 = repository.save(
-                new Post(null, "Post 4", "Content 4")
+                new Post(null, "Post 4", "Content 4", authorId)
         );
         Post post5 = repository.save(
-                new Post(null, "Post 5", "Content 5")
+                new Post(null, "Post 5", "Content 5", authorId)
         );
 
         entityManager.flush();
