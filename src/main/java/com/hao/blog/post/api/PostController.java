@@ -101,7 +101,8 @@ public class PostController {
                 id,
                 request.title(),
                 request.content(),
-                principal.id()
+                principal.id(),
+                principal.role()
         );
 
         return new PostResponse(

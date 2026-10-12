@@ -2,6 +2,7 @@ package com.hao.blog.post.application;
 
 import com.hao.blog.post.domain.Post;
 import com.hao.blog.post.domain.PostRepository;
+import com.hao.blog.user.domain.UserRole;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -18,6 +19,8 @@ import static org.mockito.Mockito.*;
 class PostServiceTest {
 
     private static final Long AUTHOR_ID = 42L;
+    private static final Long OWNER_ID = 17L;
+    private static final Long OTHER_USER_ID = 99L;
 
     @Mock
     private PostRepository postRepository;
@@ -119,7 +122,7 @@ class PostServiceTest {
     }
 
     @Test
-    void updatePost_owner_returnsUpdatedPost() {
+    void updatePost_ownerUser_returnsUpdatedPost() {
         // Arrange
         PostService postService =
                 new PostService(postRepository);
@@ -128,14 +131,14 @@ class PostServiceTest {
                 1L,
                 "Original",
                 "Original content",
-                AUTHOR_ID
+                OWNER_ID
         );
 
         Post updatedPost = new Post(
                 1L,
                 "Changed",
                 "New content",
-                AUTHOR_ID
+                OWNER_ID
         );
 
         when(postRepository.findById(1L))
@@ -152,14 +155,15 @@ class PostServiceTest {
                 1L,
                 "Changed",
                 "New content",
-                AUTHOR_ID
+                OWNER_ID,
+                UserRole.USER
         );
 
         // Assert
         assertEquals(1L, result.id());
         assertEquals("Changed", result.title());
         assertEquals("New content", result.content());
-        assertEquals(AUTHOR_ID, result.authorId());
+        assertEquals(OWNER_ID, result.authorId());
 
         verify(postRepository).findById(1L);
 
@@ -186,7 +190,8 @@ class PostServiceTest {
                         999L,
                         "Changed",
                         "New content",
-                        AUTHOR_ID
+                        AUTHOR_ID,
+                        UserRole.USER
                 )
         );
 
@@ -201,7 +206,7 @@ class PostServiceTest {
     }
 
     @Test
-    void updatePost_nonOwner_throwsPostAccessDeniedException() {
+    void updatePost_nonOwnerUser_throwsPostAccessDeniedException() {
         // Arrange
         PostService postService =
                 new PostService(postRepository);
@@ -210,7 +215,7 @@ class PostServiceTest {
                 1L,
                 "Original",
                 "Content",
-                17L
+                OWNER_ID
         );
 
         when(postRepository.findById(1L))
@@ -223,7 +228,8 @@ class PostServiceTest {
                         1L,
                         "Changed",
                         "New content",
-                        99L
+                        OTHER_USER_ID,
+                        UserRole.USER
                 )
         );
 
@@ -234,6 +240,70 @@ class PostServiceTest {
                         anyLong(),
                         anyString(),
                         anyString()
+                );
+    }
+
+    @Test
+    void updatePost_nonOwnerAdmin_updatesPost() {
+
+        //Arrange
+        PostService postService =
+                new PostService(postRepository);
+
+        Post existingPost = new Post(
+                1L,
+                "Original title",
+                "Original content",
+                OWNER_ID
+        );
+
+        Post updatedPost = new Post(
+                1L,
+                "Admin changed title",
+                "Admin changed content",
+                OWNER_ID
+        );
+
+        when(postRepository.findById(1L))
+                .thenReturn(Optional.of(existingPost));
+
+        when(postRepository.update(
+                1L,
+                "Admin changed title",
+                "Admin changed content"
+        )).thenReturn(Optional.of(updatedPost));
+
+
+        //Act
+        Post result = postService.updatePost(
+                1L,
+                "Admin changed title",
+                "Admin changed content",
+                OTHER_USER_ID,
+                UserRole.ADMIN
+        );
+
+        //Assert
+        assertEquals(
+                "Admin changed title",
+                result.title()
+        );
+
+        assertEquals(
+                "Admin changed content",
+                result.content()
+        );
+
+        assertEquals(
+                OWNER_ID,
+                result.authorId()
+        );
+
+        verify(postRepository)
+                .update(
+                        1L,
+                        "Admin changed title",
+                        "Admin changed content"
                 );
     }
 }

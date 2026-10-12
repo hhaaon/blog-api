@@ -1,4 +1,4 @@
-package com.hao.blog.post.api;
+package com.hao.blog.post;
 
 import com.hao.blog.testsupport.PostgresTestConfiguration;
 import com.hao.blog.user.application.RegistrationService;
@@ -186,37 +186,200 @@ class PostOwnershipIntegrationTest {
         );
     }
 
+    @Test
+    void nonOwnerUserDenied_adminAllowedAndOwnershipPreserved() throws Exception {
+        String aliceEmail = "alice@example.com";
+        String bobEmail = "bob@example.com";
+        String adminEmail = "admin@example.com";
+        String password = "StrongPass123!";
+
+        // Register through the real HTTP boundary.
+        register(aliceEmail, password);
+        register(bobEmail, password);
+        register(adminEmail, password);
+
+        Long aliceId = findUserIdByEmail(aliceEmail);
+        Long adminId = findUserIdByEmail(adminEmail);
+
+        // Registration must NOT allow the client to choose ADMIN.
+        // Test infrastructure establishes the trusted ADMIN fixture directly.
+        jdbcTemplate.update(
+                "UPDATE users SET role = 'ADMIN' WHERE id = ?",
+                adminId
+        );
+
+        // Important: login happens AFTER promotion so the principal contains ADMIN.
+        MockHttpSession aliceSession = login(aliceEmail, password);
+        MockHttpSession bobSession = login(bobEmail, password);
+        MockHttpSession adminSession = login(adminEmail, password);
+
+        // Alice creates the post.
+        mockMvc.perform(
+                        post("/posts")
+                                .session(aliceSession)
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                {
+                                    "title": "Alice original title",
+                                    "content": "Alice original content"
+                                }
+                                """)
+                )
+                .andExpect(status().isCreated());
+
+        Long postId = jdbcTemplate.queryForObject(
+                """
+                SELECT id
+                FROM posts
+                WHERE title = ?
+                """,
+                Long.class,
+                "Alice original title"
+        );
+
+        Long originalAuthorId = jdbcTemplate.queryForObject(
+                "SELECT author_id FROM posts WHERE id = ?",
+                Long.class,
+                postId
+        );
+
+        assertEquals(aliceId, originalAuthorId);
+
+        // Bob is authenticated, but he does not own Alice's post.
+        mockMvc.perform(
+                        put("/posts/{id}", postId)
+                                .session(bobSession)
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                {
+                                    "title": "Bob changed title",
+                                    "content": "Bob changed content"
+                                }
+                                """)
+                )
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code")
+                        .value("POST_ACCESS_DENIED"));
+
+        // Denied authorization must not mutate the database.
+        String titleAfterBob = jdbcTemplate.queryForObject(
+                "SELECT title FROM posts WHERE id = ?",
+                String.class,
+                postId
+        );
+
+        String contentAfterBob = jdbcTemplate.queryForObject(
+                "SELECT content FROM posts WHERE id = ?",
+                String.class,
+                postId
+        );
+
+        Long authorAfterBob = jdbcTemplate.queryForObject(
+                "SELECT author_id FROM posts WHERE id = ?",
+                Long.class,
+                postId
+        );
+
+        assertEquals("Alice original title", titleAfterBob);
+        assertEquals("Alice original content", contentAfterBob);
+        assertEquals(aliceId, authorAfterBob);
+
+        // Admin does not own the post, but ADMIN overrides owner-only authorization.
+        mockMvc.perform(
+                        put("/posts/{id}", postId)
+                                .session(adminSession)
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                {
+                                    "title": "Admin changed title",
+                                    "content": "Admin changed content"
+                                }
+                                """)
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.title")
+                        .value("Admin changed title"))
+                .andExpect(jsonPath("$.content")
+                        .value("Admin changed content"));
+
+        // Admin may mutate the resource, but does NOT become its owner.
+        String titleAfterAdmin = jdbcTemplate.queryForObject(
+                "SELECT title FROM posts WHERE id = ?",
+                String.class,
+                postId
+        );
+
+        String contentAfterAdmin = jdbcTemplate.queryForObject(
+                "SELECT content FROM posts WHERE id = ?",
+                String.class,
+                postId
+        );
+
+        Long authorAfterAdmin = jdbcTemplate.queryForObject(
+                "SELECT author_id FROM posts WHERE id = ?",
+                Long.class,
+                postId
+        );
+
+        assertEquals("Admin changed title", titleAfterAdmin);
+        assertEquals("Admin changed content", contentAfterAdmin);
+        assertEquals(aliceId, authorAfterAdmin);
+    }
+
+    private void register(
+            String email,
+            String password
+    ) throws Exception {
+
+        mockMvc.perform(
+                        post("/auth/register")
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                {
+                                    "email": "%s",
+                                    "password": "%s"
+                                }
+                                """.formatted(email, password))
+                )
+                .andExpect(status().isCreated());
+    }
+
     private MockHttpSession login(
             String email,
             String password
     ) throws Exception {
 
-        String loginBody = """
-                {
-                    "email": "%s",
-                    "password": "%s"
-                }
-                """.formatted(email, password);
+        MvcResult result = mockMvc.perform(
+                        post("/auth/login")
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                {
+                                    "email": "%s",
+                                    "password": "%s"
+                                }
+                                """.formatted(email, password))
+                )
+                .andExpect(status().isNoContent())
+                .andReturn();
 
-        MvcResult loginResult =
-                mockMvc.perform(
-                                post("/auth/login")
-                                        .with(csrf())
-                                        .contentType(
-                                                MediaType.APPLICATION_JSON
-                                        )
-                                        .content(loginBody)
-                        )
-                        .andExpect(status().isNoContent())
-                        .andReturn();
+        return (MockHttpSession)
+                result.getRequest().getSession(false);
+    }
 
-        MockHttpSession session =
-                (MockHttpSession) loginResult
-                        .getRequest()
-                        .getSession(false);
-
-        assertNotNull(session);
-
-        return session;
+    private Long findUserIdByEmail(String email) {
+        return jdbcTemplate.queryForObject(
+                """
+                SELECT id
+                FROM users
+                WHERE email = ?
+                """,
+                Long.class,
+                email
+        );
     }
 }

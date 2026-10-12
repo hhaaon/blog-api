@@ -5,6 +5,7 @@ import com.hao.blog.post.domain.Post;
 import com.hao.blog.post.persistence.PostEntity;
 import com.hao.blog.post.persistence.PostJpaRepository;
 import com.hao.blog.testsupport.PostgresTestConfiguration;
+import com.hao.blog.user.domain.UserRole;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -65,7 +66,8 @@ public class PostUpdateIntegrationTest {
                 postId,
                 "Changed",
                 "New content",
-                authorId
+                authorId,
+                UserRole.USER
         );
 
         //Assert

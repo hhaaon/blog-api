@@ -3,6 +3,7 @@ package com.hao.blog.post.application;
 import com.hao.blog.post.domain.PageResult;
 import com.hao.blog.post.domain.Post;
 import com.hao.blog.post.domain.PostRepository;
+import com.hao.blog.user.domain.UserRole;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 
@@ -43,12 +44,13 @@ public class PostService {
             Long id,
             String title,
             String content,
-            Long callerId
+            Long callerId,
+            UserRole callerRole
     ) {
         Post existing = postRepository.findById(id)
                 .orElseThrow(() -> new PostNotFoundException(id));
 
-        if (!existing.authorId().equals(callerId)) {
+        if (!existing.authorId().equals(callerId) && callerRole != UserRole.ADMIN) {
             throw new PostAccessDeniedException();
         }
 

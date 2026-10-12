@@ -4,6 +4,7 @@ import com.hao.blog.post.application.PostService;
 import com.hao.blog.post.persistence.PostEntity;
 import com.hao.blog.post.persistence.PostJpaRepository;
 import com.hao.blog.testsupport.PostgresTestConfiguration;
+import com.hao.blog.user.domain.UserRole;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -77,7 +78,8 @@ public class PostOptimisticLockingTest {
                 postId,
                 "Changed",
                 "New content",
-                authorId
+                authorId,
+                UserRole.USER
         );
 
         //Assert
