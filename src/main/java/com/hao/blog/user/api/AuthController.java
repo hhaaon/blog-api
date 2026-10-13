@@ -18,6 +18,7 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
 import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -37,14 +38,31 @@ public class AuthController {
             SessionAuthenticationStrategy sessionAuthenticationStrategy,
             RegistrationService registrationService
     ) {
-        this.authenticationManager = authenticationManager;
-        this.securityContextRepository = securityContextRepository;
-        this.sessionAuthenticationStrategy = sessionAuthenticationStrategy;
-        this.registrationService = registrationService;
+        this.authenticationManager =
+                authenticationManager;
+
+        this.securityContextRepository =
+                securityContextRepository;
+
+        this.sessionAuthenticationStrategy =
+                sessionAuthenticationStrategy;
+
+        this.registrationService =
+                registrationService;
+    }
+
+    @GetMapping("/auth/csrf")
+    public CsrfResponse csrf(
+            CsrfToken csrfToken
+    ) {
+        return new CsrfResponse(
+                csrfToken.getToken(),
+                csrfToken.getHeaderName()
+        );
     }
 
     @PostMapping("/auth/register")
-    public ResponseEntity<RegisterResponse>  register(
+    public ResponseEntity<RegisterResponse> register(
             @Valid @RequestBody RegisterRequest request
     ) {
         User registeredUser =
@@ -53,13 +71,16 @@ public class AuthController {
                         request.password()
                 );
 
-        RegisterResponse response = new RegisterResponse(
-                registeredUser.id(),
-                registeredUser.email(),
-                registeredUser.role()
-        );
+        RegisterResponse response =
+                new RegisterResponse(
+                        registeredUser.id(),
+                        registeredUser.email(),
+                        registeredUser.role()
+                );
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(response);
     }
 
     @PostMapping("/auth/login")
@@ -69,20 +90,23 @@ public class AuthController {
             HttpServletResponse response
     ) {
         UsernamePasswordAuthenticationToken authenticationToken =
-                UsernamePasswordAuthenticationToken.unauthenticated(
-                        loginRequest.email(),
-                        loginRequest.password()
-                );
+                UsernamePasswordAuthenticationToken
+                        .unauthenticated(
+                                loginRequest.email(),
+                                loginRequest.password()
+                        );
 
         Authentication authentication;
 
         try {
             authentication =
-                    authenticationManager.authenticate(authenticationToken);
+                    authenticationManager.authenticate(
+                            authenticationToken
+                    );
+
         } catch (BadCredentialsException exception) {
             throw new InvalidCredentialsException();
         }
-
 
         sessionAuthenticationStrategy.onAuthentication(
                 authentication,
@@ -91,11 +115,16 @@ public class AuthController {
         );
 
         SecurityContext securityContext =
-                SecurityContextHolder.createEmptyContext();
+                SecurityContextHolder
+                        .createEmptyContext();
 
-        securityContext.setAuthentication(authentication);
+        securityContext.setAuthentication(
+                authentication
+        );
 
-        SecurityContextHolder.setContext(securityContext);
+        SecurityContextHolder.setContext(
+                securityContext
+        );
 
         securityContextRepository.saveContext(
                 securityContext,
@@ -103,20 +132,25 @@ public class AuthController {
                 response
         );
 
-        return ResponseEntity.noContent().build();
+        return ResponseEntity
+                .noContent()
+                .build();
     }
 
     @GetMapping("/auth/me")
     public ResponseEntity<MeResponse> me(
-            @AuthenticationPrincipal AuthenticatedUser principal
-            ) {
+            @AuthenticationPrincipal
+            AuthenticatedUser principal
+    ) {
+        MeResponse response =
+                new MeResponse(
+                        principal.id(),
+                        principal.getUsername(),
+                        principal.role()
+                );
 
-        MeResponse response = new MeResponse(
-                principal.id(),
-                principal.getUsername(),
-                principal.role()
+        return ResponseEntity.ok(
+                response
         );
-
-        return ResponseEntity.ok(response);
     }
 }

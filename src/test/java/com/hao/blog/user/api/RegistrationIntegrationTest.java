@@ -14,10 +14,15 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import org.springframework.mock.web.MockHttpSession;
+import org.springframework.test.web.servlet.MvcResult;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
@@ -36,6 +41,9 @@ class RegistrationIntegrationTest {
 
     @Autowired
     JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    ObjectMapper objectMapper;
 
     @BeforeEach
     void cleanDatabase() {
@@ -173,5 +181,89 @@ class RegistrationIntegrationTest {
                 0,
                 userJpaRepository.count()
         );
+    }
+
+    @Test
+    void register_withCsrfTokenObtainedFromApi_returnsCreated()
+            throws Exception {
+
+        /*
+         * Step 1:
+         * Obtain CSRF state from the real API.
+         */
+        MvcResult csrfResult =
+                mockMvc.perform(
+                                get("/auth/csrf")
+                        )
+                        .andExpect(
+                                status().isOk()
+                        )
+                        .andReturn();
+
+        JsonNode csrfJson =
+                objectMapper.readTree(
+                        csrfResult
+                                .getResponse()
+                                .getContentAsString()
+                );
+
+        String csrfToken =
+                csrfJson
+                        .get("token")
+                        .asText();
+
+        String csrfHeaderName =
+                csrfJson
+                        .get("headerName")
+                        .asText();
+
+        MockHttpSession session =
+                (MockHttpSession)
+                        csrfResult
+                                .getRequest()
+                                .getSession(false);
+
+        assertNotNull(session);
+
+        /*
+         * Step 2:
+         * Submit registration using the same CSRF session.
+         */
+        String body = """
+            {
+              "email": "alice@example.com",
+              "password": "secret123"
+            }
+            """;
+
+        mockMvc.perform(
+                        post("/auth/register")
+                                .session(session)
+                                .header(
+                                        csrfHeaderName,
+                                        csrfToken
+                                )
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(
+                                        body
+                                )
+                )
+                .andExpect(
+                        status().isCreated()
+                )
+                .andExpect(
+                        jsonPath("$.email")
+                                .value(
+                                        "alice@example.com"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.role")
+                                .value(
+                                        "USER"
+                                )
+                );
     }
 }

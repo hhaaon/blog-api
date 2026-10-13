@@ -18,4 +18,9 @@ public class SecurityProbeController {
     String createPost() {
         return "created";
     }
+
+    @GetMapping("/auth/csrf")
+    String csrf() {
+        return "ok";
+    }
 }

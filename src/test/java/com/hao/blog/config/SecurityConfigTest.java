@@ -57,5 +57,16 @@ class SecurityConfigTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    void csrfEndpoint_withoutAuthentication_isAllowed()
+            throws Exception {
+
+        mockMvc.perform(
+                        get("/auth/csrf")
+                )
+                .andExpect(
+                        status().isOk()
+                );
+    }
 
 }

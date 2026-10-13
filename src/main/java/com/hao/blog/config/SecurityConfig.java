@@ -30,30 +30,60 @@ public class SecurityConfig {
             AuthenticationProvider authenticationProvider,
             SecurityContextRepository securityContextRepository
     ) throws Exception {
+
         http
-                .authenticationProvider(authenticationProvider)
+                .authenticationProvider(
+                        authenticationProvider
+                )
                 .securityContext(context -> context
-                        .securityContextRepository(securityContextRepository)
+                        .securityContextRepository(
+                                securityContextRepository
+                        )
                         .requireExplicitSave(true)
                 )
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(
-                                new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)
+                                new HttpStatusEntryPoint(
+                                        HttpStatus.UNAUTHORIZED
+                                )
                         )
                 )
                 .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.GET, "/posts/**").permitAll()
-                .requestMatchers(HttpMethod.POST, "/auth/register").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
-                        .anyRequest().authenticated()
-        );
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/posts/**"
+                        )
+                        .permitAll()
+
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/auth/csrf"
+                        )
+                        .permitAll()
+
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/auth/register"
+                        )
+                        .permitAll()
+
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/auth/login"
+                        )
+                        .permitAll()
+
+                        .anyRequest()
+                        .authenticated()
+                );
 
         return http.build();
     }
 
     @Bean
     PasswordEncoder passwordEncoder() {
-        return PasswordEncoderFactories.createDelegatingPasswordEncoder();
+        return PasswordEncoderFactories
+                .createDelegatingPasswordEncoder();
     }
 
     @Bean
@@ -61,10 +91,14 @@ public class SecurityConfig {
             DatabaseUserDetailsService userDetailsService,
             PasswordEncoder passwordEncoder
     ) {
-            DaoAuthenticationProvider provider =
-                new DaoAuthenticationProvider(userDetailsService);
+        DaoAuthenticationProvider provider =
+                new DaoAuthenticationProvider(
+                        userDetailsService
+                );
 
-        provider.setPasswordEncoder(passwordEncoder);
+        provider.setPasswordEncoder(
+                passwordEncoder
+        );
 
         return provider;
     }
@@ -73,7 +107,9 @@ public class SecurityConfig {
     AuthenticationManager authenticationManager(
             AuthenticationProvider authenticationProvider
     ) {
-        return new ProviderManager(authenticationProvider);
+        return new ProviderManager(
+                authenticationProvider
+        );
     }
 
     @Bean

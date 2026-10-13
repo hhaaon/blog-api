@@ -17,6 +17,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -41,6 +43,9 @@ class LoginIntegrationTest {
 
     @Autowired
     UserJpaRepository userJpaRepository;
+
+    @Autowired
+    ObjectMapper objectMapper;
 
     @BeforeEach
     void cleanDatabase() {
@@ -163,5 +168,164 @@ class LoginIntegrationTest {
         ResponseEntity<Void> protectedEndpoint() {
             return ResponseEntity.noContent().build();
         }
+    }
+
+    @Test
+    void csrf_withoutAuthentication_returnsTokenAndCreatesSession()
+            throws Exception {
+
+        MvcResult csrfResult =
+                mockMvc.perform(
+                                get("/auth/csrf")
+                        )
+                        .andExpect(
+                                status().isOk()
+                        )
+                        .andExpect(
+                                jsonPath("$.token")
+                                        .isNotEmpty()
+                        )
+                        .andExpect(
+                                jsonPath("$.headerName")
+                                        .value("X-CSRF-TOKEN")
+                        )
+                        .andReturn();
+
+        MockHttpSession session =
+                (MockHttpSession)
+                        csrfResult
+                                .getRequest()
+                                .getSession(false);
+
+        assertNotNull(session);
+    }
+
+    @Test
+    void csrfThenLogin_sessionAuthenticatesNextRequest()
+            throws Exception {
+
+        registrationService.register(
+                "alice@example.com",
+                "secret123"
+        );
+
+        /*
+         * Step 1:
+         * Anonymous client asks the server for a CSRF token.
+         */
+        MvcResult csrfResult =
+                mockMvc.perform(
+                                get("/auth/csrf")
+                        )
+                        .andExpect(
+                                status().isOk()
+                        )
+                        .andReturn();
+
+        String csrfBody =
+                csrfResult
+                        .getResponse()
+                        .getContentAsString();
+
+        JsonNode csrfJson =
+                objectMapper.readTree(
+                        csrfBody
+                );
+
+        String csrfToken =
+                csrfJson
+                        .get("token")
+                        .asText();
+
+        String csrfHeaderName =
+                csrfJson
+                        .get("headerName")
+                        .asText();
+
+        MockHttpSession anonymousSession =
+                (MockHttpSession)
+                        csrfResult
+                                .getRequest()
+                                .getSession(false);
+
+        assertNotNull(
+                anonymousSession
+        );
+
+        /*
+         * Step 2:
+         * Client logs in using the same session and the
+         * real CSRF token returned by the API.
+         */
+        String loginBody = """
+            {
+              "email": "alice@example.com",
+              "password": "secret123"
+            }
+            """;
+
+        MvcResult loginResult =
+                mockMvc.perform(
+                                post("/auth/login")
+                                        .session(
+                                                anonymousSession
+                                        )
+                                        .header(
+                                                csrfHeaderName,
+                                                csrfToken
+                                        )
+                                        .contentType(
+                                                MediaType.APPLICATION_JSON
+                                        )
+                                        .content(
+                                                loginBody
+                                        )
+                        )
+                        .andExpect(
+                                status().isNoContent()
+                        )
+                        .andReturn();
+
+        /*
+         * The authentication strategy may change the
+         * session ID during login, so use the session
+         * from the login request afterward.
+         */
+        MockHttpSession authenticatedSession =
+                (MockHttpSession)
+                        loginResult
+                                .getRequest()
+                                .getSession(false);
+
+        assertNotNull(
+                authenticatedSession
+        );
+
+        /*
+         * Step 3:
+         * The resulting session must authenticate
+         * a later request.
+         */
+        mockMvc.perform(
+                        get("/auth/me")
+                                .session(
+                                        authenticatedSession
+                                )
+                )
+                .andExpect(
+                        status().isOk()
+                )
+                .andExpect(
+                        jsonPath("$.email")
+                                .value(
+                                        "alice@example.com"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.role")
+                                .value(
+                                        "USER"
+                                )
+                );
     }
 }
