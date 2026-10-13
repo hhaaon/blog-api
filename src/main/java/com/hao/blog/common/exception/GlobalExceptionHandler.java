@@ -4,7 +4,6 @@ import com.hao.blog.post.application.PostAccessDeniedException;
 import com.hao.blog.post.application.PostNotFoundException;
 import com.hao.blog.user.application.DuplicateEmailException;
 import com.hao.blog.user.application.InvalidCredentialsException;
-import org.apache.tomcat.websocket.AuthenticationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -69,20 +68,6 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity
                 .status(HttpStatus.CONFLICT)
-                .body(response);
-    }
-
-    @ExceptionHandler(AuthenticationException.class)
-    ResponseEntity<ErrorResponse> handleAuthenticationError(
-            AuthenticationException exception
-    ) {
-        ErrorResponse response = new ErrorResponse(
-                "INVALID_CREDENTIALS",
-                "Invalid email or password"
-        );
-
-        return ResponseEntity
-                .status(HttpStatus.UNAUTHORIZED)
                 .body(response);
     }
 
