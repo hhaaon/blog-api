@@ -1,6 +1,7 @@
-package com.hao.blog;
+package com.hao.blog.config;
 
 import com.hao.blog.post.application.PostView;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -10,26 +11,27 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.serializer.JacksonJsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 
-import java.time.Duration;
-
 @Configuration
 @EnableCaching
+@EnableConfigurationProperties(CacheProperties.class)
 public class CacheConfig {
 
     @Bean
     RedisCacheManager cacheManager(
-            RedisConnectionFactory connectionFactory
+            RedisConnectionFactory connectionFactory,
+            CacheProperties properties
     ) {
-        JacksonJsonRedisSerializer<PostView> serializer =
-                new JacksonJsonRedisSerializer<>(PostView.class);
-
         RedisCacheConfiguration postConfig =
                 RedisCacheConfiguration.defaultCacheConfig()
-                        .entryTtl(Duration.ofMinutes(5))
+                        .entryTtl(properties.ttl())
                         .disableCachingNullValues()
                         .serializeValuesWith(
                                 RedisSerializationContext.SerializationPair
-                                        .fromSerializer(serializer)
+                                        .fromSerializer(
+                                                new JacksonJsonRedisSerializer<>(
+                                                        PostView.class
+                                                )
+                                        )
                         );
 
         return RedisCacheManager.builder(connectionFactory)
@@ -37,4 +39,5 @@ public class CacheConfig {
                 .transactionAware()
                 .build();
     }
+
 }
