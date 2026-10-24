@@ -1,6 +1,7 @@
 package com.hao.blog.post.api;
 
 import com.hao.blog.post.application.PostService;
+import com.hao.blog.post.application.PostView;
 import com.hao.blog.post.domain.PageResult;
 import com.hao.blog.post.domain.Post;
 import com.hao.blog.user.security.AuthenticatedUser;
@@ -50,14 +51,16 @@ public class PostController {
     }
 
     @GetMapping("/posts/{id}")
-    PostResponse getPost(@PathVariable Long id) {
-        Post post = postService.getPost(id);
+    ResponseEntity<PostResponse> getPost(@PathVariable Long id) {
+        PostView post = postService.getPost(id);
 
-        return new PostResponse(
+        PostResponse response = new PostResponse(
                 post.id(),
                 post.title(),
                 post.content()
         );
+
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/posts")

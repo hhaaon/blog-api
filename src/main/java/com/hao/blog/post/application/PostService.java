@@ -11,11 +11,14 @@ import org.springframework.stereotype.Service;
 public class PostService {
 
     private final PostRepository postRepository;
+    private final PostCacheService postCacheService;
 
     public PostService(
-            PostRepository postRepository
+            PostRepository postRepository,
+            PostCacheService postCacheService
     ) {
         this.postRepository = postRepository;
+        this.postCacheService = postCacheService;
     }
 
     @Transactional
@@ -30,9 +33,9 @@ public class PostService {
         return postRepository.save(post);
     }
 
-    public Post getPost(Long id) {
-        return postRepository.findById(id)
-                .orElseThrow(() -> new PostNotFoundException(id));
+    @Transactional(readOnly = true)
+    public PostView getPost(Long id) {
+        return postCacheService.getPost(id);
     }
 
     public PageResult<Post> findAll(int page, int size) {
@@ -54,7 +57,11 @@ public class PostService {
             throw new PostAccessDeniedException();
         }
 
-        return postRepository.update(id, title, content)
+        Post updated = postRepository.update(id, title, content)
                 .orElseThrow(() -> new PostNotFoundException(id));
+
+        postCacheService.evictPost(id);
+
+        return updated;
     }
 }

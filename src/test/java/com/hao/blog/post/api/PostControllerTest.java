@@ -3,6 +3,7 @@ package com.hao.blog.post.api;
 import com.hao.blog.post.application.PostAccessDeniedException;
 import com.hao.blog.post.application.PostNotFoundException;
 import com.hao.blog.post.application.PostService;
+import com.hao.blog.post.application.PostView;
 import com.hao.blog.post.domain.PageResult;
 import com.hao.blog.post.domain.Post;
 import com.hao.blog.user.domain.UserRole;
@@ -136,11 +137,11 @@ public class PostControllerTest {
     @Test
     void getPost_existingId_returns200WithPost() throws Exception{
         //Arrange
-        Post post = new Post(
+        PostView post = new PostView(
                 1L,
-                "Learning Spring",
-                "My first post",
-                OWNER_ID
+                "Title",
+                "Content",
+                10L
         );
 
         when(postService.getPost(1L))
@@ -153,8 +154,8 @@ public class PostControllerTest {
         )
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1))
-                .andExpect(jsonPath("$.title").value("Learning Spring"))
-                .andExpect(jsonPath("$.content").value("My first post"));
+                .andExpect(jsonPath("$.title").value("Title"))
+                .andExpect(jsonPath("$.content").value("Content"));
 
         verify(postService).getPost(1L);
     }
