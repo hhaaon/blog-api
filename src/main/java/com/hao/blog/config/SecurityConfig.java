@@ -1,6 +1,8 @@
 package com.hao.blog.config;
 
 import com.hao.blog.user.security.DatabaseUserDetailsService;
+import org.springframework.boot.health.actuate.endpoint.HealthEndpoint;
+import org.springframework.boot.security.autoconfigure.actuate.web.servlet.EndpointRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -71,6 +73,9 @@ public class SecurityConfig {
                                 HttpMethod.POST,
                                 "/auth/login"
                         )
+                        .permitAll()
+
+                        .requestMatchers(EndpointRequest.to(HealthEndpoint.class))
                         .permitAll()
 
                         .anyRequest()
