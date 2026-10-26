@@ -10,68 +10,73 @@ import static org.mockito.Mockito.when;
 
 class ResilientCacheErrorHandlerTest {
 
-    private ResilientCacheErrorHandler errorHandler;
+    private ResilientCacheErrorHandler handler;
     private Cache cache;
 
     @BeforeEach
     void setUp() {
-        errorHandler = new ResilientCacheErrorHandler();
+        handler = new ResilientCacheErrorHandler();
 
         cache = mock(Cache.class);
-        when(cache.getName()).thenReturn("posts");
+
+        when(cache.getName())
+                .thenReturn("posts");
     }
 
     @Test
-    void cacheGetFailure_isSuppressed() {
-        RuntimeException failure =
+    void getFailure_isSuppressed() {
+        RuntimeException exception =
                 new RuntimeException("Redis unavailable");
 
         assertDoesNotThrow(() ->
-                errorHandler.handleCacheGetError(
-                        failure,
+                handler.handleCacheGetError(
+                        exception,
                         cache,
-                        123L
+                        42L
                 )
         );
     }
 
     @Test
-    void cachePutFailure_isSuppressed() {
-        RuntimeException failure =
+    void putFailure_isSuppressed() {
+        RuntimeException exception =
                 new RuntimeException("Redis unavailable");
 
+        Object cachedValue =
+                new Object();
+
         assertDoesNotThrow(() ->
-                errorHandler.handleCachePutError(
-                        failure,
+                handler.handleCachePutError(
+                        exception,
                         cache,
-                        123L,
-                        "do-not-log-this-value"
+                        42L,
+                        cachedValue
                 )
         );
     }
 
     @Test
-    void cacheEvictFailure_isSuppressed() {
-        RuntimeException failure =
+    void evictFailure_isSuppressed() {
+        RuntimeException exception =
                 new RuntimeException("Redis unavailable");
 
         assertDoesNotThrow(() ->
-                errorHandler.handleCacheEvictError(
-                        failure,
+                handler.handleCacheEvictError(
+                        exception,
                         cache,
-                        123L
+                        42L
                 )
         );
     }
 
     @Test
-    void cacheClearFailure_isSuppressed() {
-        RuntimeException failure =
+    void clearFailure_isSuppressed() {
+        RuntimeException exception =
                 new RuntimeException("Redis unavailable");
 
         assertDoesNotThrow(() ->
-                errorHandler.handleCacheClearError(
-                        failure,
+                handler.handleCacheClearError(
+                        exception,
                         cache
                 )
         );
