@@ -1,3 +1,4 @@
+
 package com.hao.blog.config;
 
 import com.hao.blog.user.security.DatabaseUserDetailsService;
@@ -43,17 +44,40 @@ class SecurityConfigTest {
     }
 
     @Test
-    void postPosts_withAuthenticationAndValidCsrf_isAllowed() throws Exception {
+    void postPosts_withUserRoleAndValidCsrf_isForbidden()
+            throws Exception {
+
         mockMvc.perform(post("/posts")
-                        .with(user("alice"))
+                        .with(user("alice").roles("USER"))
+                        .with(csrf()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void postPosts_withAdminRoleAndValidCsrf_isAllowed()
+            throws Exception {
+
+        mockMvc.perform(post("/posts")
+                        .with(user("admin").roles("ADMIN"))
                         .with(csrf()))
                 .andExpect(status().isOk());
     }
 
     @Test
-    void postPosts_withAuthenticationButWithoutCsrf_isRejected() throws Exception {
+    void postPosts_withAuthenticationButWithoutCsrf_isRejected()
+            throws Exception {
+
         mockMvc.perform(post("/posts")
-                        .with(user("alice")))
+                        .with(user("alice").roles("USER")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void postPosts_withAdminRoleButWithoutCsrf_isRejected()
+            throws Exception {
+
+        mockMvc.perform(post("/posts")
+                        .with(user("admin").roles("ADMIN")))
                 .andExpect(status().isForbidden());
     }
 
@@ -61,12 +85,7 @@ class SecurityConfigTest {
     void csrfEndpoint_withoutAuthentication_isAllowed()
             throws Exception {
 
-        mockMvc.perform(
-                        get("/auth/csrf")
-                )
-                .andExpect(
-                        status().isOk()
-                );
+        mockMvc.perform(get("/auth/csrf"))
+                .andExpect(status().isOk());
     }
-
 }

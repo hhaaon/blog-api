@@ -1,3 +1,4 @@
+
 package com.hao.blog.post;
 
 import com.hao.blog.testsupport.PostgresTestConfiguration;
@@ -61,7 +62,7 @@ class PostOwnershipIntegrationTest {
     void nonOwnerCannotUpdatePost_andDatabaseRemainsUnchanged()
             throws Exception {
 
-        // Arrange: create two different real users
+        // Arrange: create two different real users.
         User alice = registrationService.register(
                 "alice@example.com",
                 "secret123"
@@ -74,35 +75,20 @@ class PostOwnershipIntegrationTest {
 
         assertNotEquals(alice.id(), bob.id());
 
-        // Authenticate each user independently.
-        // These must be separate sessions.
-        MockHttpSession aliceSession =
-                login("alice@example.com", "secret123");
-
         MockHttpSession bobSession =
                 login("bob@example.com", "secret123");
 
-        assertNotNull(aliceSession);
         assertNotNull(bobSession);
 
-        // Alice creates the post through the real HTTP endpoint.
-        mockMvc.perform(
-                        post("/posts")
-                                .session(aliceSession)
-                                .with(csrf())
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                        {
-                                            "title": "Original title",
-                                            "content": "Original content"
-                                        }
-                                        """)
-                )
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.title")
-                        .value("Original title"))
-                .andExpect(jsonPath("$.content")
-                        .value("Original content"));
+        // Arrange: create an existing post owned by Alice.
+        // This is test setup, not a test of POST /posts.
+        // Publishing now requires ADMIN, so we insert
+        // the fixture directly into the test database.
+        createPostFixture(
+                "Original title",
+                "Original content",
+                alice.id()
+        );
 
         // Verify server-side ownership in PostgreSQL.
         Map<String, Object> createdRow =
@@ -149,16 +135,14 @@ class PostOwnershipIntegrationTest {
                                         }
                                         """)
                 )
-
-                // Assert HTTP authorization result.
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code")
                         .value("POST_ACCESS_DENIED"))
                 .andExpect(jsonPath("$.message")
                         .value("Post access denied"));
 
-        // Assert database state:
-        // a 403 alone is not enough evidence.
+        // A 403 alone is not sufficient.
+        // Verify that the database was not modified.
         Map<String, Object> rowAfterForbiddenUpdate =
                 jdbcTemplate.queryForMap(
                         """
@@ -187,7 +171,9 @@ class PostOwnershipIntegrationTest {
     }
 
     @Test
-    void nonOwnerUserDenied_adminAllowedAndOwnershipPreserved() throws Exception {
+    void nonOwnerUserDenied_adminAllowedAndOwnershipPreserved()
+            throws Exception {
+
         String aliceEmail = "alice@example.com";
         String bobEmail = "bob@example.com";
         String adminEmail = "admin@example.com";
@@ -201,32 +187,32 @@ class PostOwnershipIntegrationTest {
         Long aliceId = findUserIdByEmail(aliceEmail);
         Long adminId = findUserIdByEmail(adminEmail);
 
-        // Registration must NOT allow the client to choose ADMIN.
-        // Test infrastructure establishes the trusted ADMIN fixture directly.
+        // Registration must NOT allow clients to choose ADMIN.
+        // Test infrastructure establishes the trusted ADMIN
+        // fixture directly in the database.
         jdbcTemplate.update(
                 "UPDATE users SET role = 'ADMIN' WHERE id = ?",
                 adminId
         );
 
-        // Important: login happens AFTER promotion so the principal contains ADMIN.
-        MockHttpSession aliceSession = login(aliceEmail, password);
-        MockHttpSession bobSession = login(bobEmail, password);
-        MockHttpSession adminSession = login(adminEmail, password);
+        // Login AFTER promotion so that the principal
+        // contains the ADMIN authority.
+        MockHttpSession bobSession =
+                login(bobEmail, password);
 
-        // Alice creates the post.
-        mockMvc.perform(
-                        post("/posts")
-                                .session(aliceSession)
-                                .with(csrf())
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                {
-                                    "title": "Alice original title",
-                                    "content": "Alice original content"
-                                }
-                                """)
-                )
-                .andExpect(status().isCreated());
+        MockHttpSession adminSession =
+                login(adminEmail, password);
+
+        assertNotNull(bobSession);
+        assertNotNull(adminSession);
+
+        // Arrange: Alice owns an existing post.
+        // Do not use POST /posts because Alice is a USER.
+        createPostFixture(
+                "Alice original title",
+                "Alice original content",
+                aliceId
+        );
 
         Long postId = jdbcTemplate.queryForObject(
                 """
@@ -246,24 +232,24 @@ class PostOwnershipIntegrationTest {
 
         assertEquals(aliceId, originalAuthorId);
 
-        // Bob is authenticated, but he does not own Alice's post.
+        // Bob is authenticated but does not own Alice's post.
         mockMvc.perform(
                         put("/posts/{id}", postId)
                                 .session(bobSession)
                                 .with(csrf())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
-                                {
-                                    "title": "Bob changed title",
-                                    "content": "Bob changed content"
-                                }
-                                """)
+                                        {
+                                            "title": "Bob changed title",
+                                            "content": "Bob changed content"
+                                        }
+                                        """)
                 )
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code")
                         .value("POST_ACCESS_DENIED"));
 
-        // Denied authorization must not mutate the database.
+        // Verify denied access did not change the database.
         String titleAfterBob = jdbcTemplate.queryForObject(
                 "SELECT title FROM posts WHERE id = ?",
                 String.class,
@@ -286,18 +272,18 @@ class PostOwnershipIntegrationTest {
         assertEquals("Alice original content", contentAfterBob);
         assertEquals(aliceId, authorAfterBob);
 
-        // Admin does not own the post, but ADMIN overrides owner-only authorization.
+        // ADMIN can update a post without owning it.
         mockMvc.perform(
                         put("/posts/{id}", postId)
                                 .session(adminSession)
                                 .with(csrf())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
-                                {
-                                    "title": "Admin changed title",
-                                    "content": "Admin changed content"
-                                }
-                                """)
+                                        {
+                                            "title": "Admin changed title",
+                                            "content": "Admin changed content"
+                                        }
+                                        """)
                 )
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.title")
@@ -305,7 +291,8 @@ class PostOwnershipIntegrationTest {
                 .andExpect(jsonPath("$.content")
                         .value("Admin changed content"));
 
-        // Admin may mutate the resource, but does NOT become its owner.
+        // The administrator may modify the resource,
+        // but ownership must remain unchanged.
         String titleAfterAdmin = jdbcTemplate.queryForObject(
                 "SELECT title FROM posts WHERE id = ?",
                 String.class,
@@ -329,6 +316,27 @@ class PostOwnershipIntegrationTest {
         assertEquals(aliceId, authorAfterAdmin);
     }
 
+    // Create an existing article for ownership tests.
+    // This helper bypasses the HTTP publishing endpoint
+    // without bypassing authorization in the operations tested.
+    private void createPostFixture(
+            String title,
+            String content,
+            Long authorId
+    ) {
+        int insertedRows = jdbcTemplate.update(
+                """
+                INSERT INTO posts (title, content, author_id, version)
+                VALUES (?, ?, ?, 0)
+                """,
+                title,
+                content,
+                authorId
+        );
+
+        assertEquals(1, insertedRows);
+    }
+
     private void register(
             String email,
             String password
@@ -339,11 +347,11 @@ class PostOwnershipIntegrationTest {
                                 .with(csrf())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
-                                {
-                                    "email": "%s",
-                                    "password": "%s"
-                                }
-                                """.formatted(email, password))
+                                        {
+                                            "email": "%s",
+                                            "password": "%s"
+                                        }
+                                        """.formatted(email, password))
                 )
                 .andExpect(status().isCreated());
     }
@@ -358,11 +366,11 @@ class PostOwnershipIntegrationTest {
                                 .with(csrf())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
-                                {
-                                    "email": "%s",
-                                    "password": "%s"
-                                }
-                                """.formatted(email, password))
+                                        {
+                                            "email": "%s",
+                                            "password": "%s"
+                                        }
+                                        """.formatted(email, password))
                 )
                 .andExpect(status().isNoContent())
                 .andReturn();
