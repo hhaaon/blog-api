@@ -1,6 +1,7 @@
 package com.hao.blog.config;
 
 import com.hao.blog.user.security.DatabaseUserDetailsService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.health.actuate.endpoint.HealthEndpoint;
 import org.springframework.boot.security.autoconfigure.actuate.web.servlet.EndpointRequest;
 import org.springframework.context.annotation.Bean;
@@ -136,11 +137,14 @@ public class SecurityConfig {
     }
 
     @Bean
-    CorsConfigurationSource corsConfigurationSource() {
+    CorsConfigurationSource corsConfigurationSource(
+            @Value("${FRONTEND_ORIGIN:http://localhost:5500}")
+            String frontendOrigin
+    ) {
         CorsConfiguration config = new CorsConfiguration();
 
         config.setAllowedOrigins(
-                List.of("http://localhost:5500")
+                List.of(frontendOrigin)
         );
 
         config.setAllowedMethods(
